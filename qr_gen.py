@@ -1,8 +1,11 @@
 import re
 import segno
 
+# Minimum matrix version so the fixed 13×13 logo hole stays within level-H recovery.
+MIN_QR_VERSION = 6
+
 def generate_qr_svg(data, filepath="qr_output.svg", module_size=20, quiet_zone=4, logo_path="logo.svg"):
-    qr = segno.make(data, error='h')
+    qr = segno.make(data, error='h', version=MIN_QR_VERSION)
     matrix = qr.matrix
     N = len(matrix)
     ms = module_size

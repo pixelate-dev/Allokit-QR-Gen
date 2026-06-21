@@ -14,7 +14,8 @@ from pydantic import BaseModel
 
 import database as db
 import worker
-from paths import JOBS_DIR
+from compose import _build_composed_svg
+from paths import JOBS_DIR, TEMPLATE_PATH
 
 MAX_CSV_BYTES = 5 * 1024 * 1024  # 5 MB cap on a batch CSV upload
 
@@ -69,7 +70,11 @@ class RenameRequest(BaseModel):
 
 @app.get("/stats")
 def stats():
-    return db.get_stats()
+    return {
+        **db.get_stats(),
+        "seconds_per_sticker": worker.get_seconds_per_sticker(),
+        "timing_measured": worker.timing_measured(),
+    }
 
 
 @app.get("/jobs")
@@ -118,6 +123,16 @@ async def create_batch(name: str = Form(...), file: UploadFile = File(...)):
     return db.get_job(job_id)
 
 
+@app.post("/jobs/{job_id}/cancel", dependencies=[Depends(require_api_key)])
+def cancel_job(job_id: int):
+    job = db.get_job(job_id)
+    if not job:
+        raise HTTPException(404, "Job not found")
+    if not worker.cancel(job_id):
+        raise HTTPException(400, f"Job cannot be cancelled (status: {job['status']})")
+    return db.get_job(job_id)
+
+
 @app.patch("/jobs/{job_id}", dependencies=[Depends(require_api_key)])
 def rename_job(job_id: int, body: RenameRequest):
     job = db.get_job(job_id)
@@ -137,6 +152,56 @@ def delete_job(job_id: int):
         shutil.rmtree(job_dir, ignore_errors=True)
     db.delete_job(job_id)
     return {"deleted": job_id}
+
+
+def _composed_svg_path(job_id: int, job: dict):
+    """Return path to the composed sticker SVG, building it on demand for older jobs."""
+    job_dir = JOBS_DIR / str(job_id)
+    svg_path = job_dir / "output.svg"
+    if svg_path.exists():
+        return svg_path
+
+    qr_path = job_dir / "qr_output.svg"
+    if job["type"] == "single" and qr_path.exists():
+        qr_svg = qr_path.read_text(encoding="utf-8")
+        template = TEMPLATE_PATH.read_text(encoding="utf-8")
+        composed = _build_composed_svg(
+            qr_svg, template,
+            worker.QR_X, worker.QR_Y, worker.QR_WIDTH, worker.QR_HEIGHT,
+        )
+        svg_path.write_text(composed, encoding="utf-8")
+        return svg_path
+
+    raise HTTPException(400, "SVG preview not available")
+
+
+@app.get("/jobs/{job_id}/preview.svg")
+def preview_job_svg(job_id: int):
+    job = db.get_job(job_id)
+    if not job:
+        raise HTTPException(404, "Job not found")
+    if job["status"] != "ready":
+        raise HTTPException(400, "Job not ready")
+    svg_path = _composed_svg_path(job_id, job)
+    return FileResponse(
+        svg_path, media_type="image/svg+xml",
+        filename=f"{job['name']}.svg",
+        content_disposition_type="inline",
+    )
+
+
+@app.get("/jobs/{job_id}/preview")
+def preview_job(job_id: int):
+    job = db.get_job(job_id)
+    if not job:
+        raise HTTPException(404, "Job not found")
+    if job["status"] != "ready" or not job["pdf_path"]:
+        raise HTTPException(400, "Job not ready")
+    return FileResponse(
+        job["pdf_path"], media_type="application/pdf",
+        filename=f"{job['name']}.pdf",
+        content_disposition_type="inline",
+    )
 
 
 @app.get("/jobs/{job_id}/download")
@@ -165,7 +230,7 @@ async def job_progress(job_id: int):
                 "error": job.get("error"),
             })
             yield f"data: {data}\n\n"
-            if job["status"] in ("ready", "failed"):
+            if job["status"] in ("ready", "failed", "cancelled"):
                 break
             await asyncio.sleep(0.5)
 
