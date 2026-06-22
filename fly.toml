@@ -24,6 +24,12 @@ primary_region = "ams"
     path = "/stats"
     timeout = "5s"
 
+
+[[mounts]]
+  source = "allokit_data"
+  destination = "/data"
+    
+
 [[vm]]
   size = "shared-cpu-1x"
   memory = "512mb"
