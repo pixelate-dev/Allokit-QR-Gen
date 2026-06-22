@@ -205,7 +205,15 @@
                 </div>
               </label>
               <label class="field" for="manual-url">
-                <span class="field-label">URL</span>
+                <span class="field-label-row">
+                  <span class="field-label">URL</span>
+                  <span class="field-error field-error--inline" id="manual-url-error" role="alert" hidden>
+                    <svg class="field-error-icon" viewBox="0 0 24 24" fill="currentColor" fill-rule="evenodd" clip-rule="evenodd" aria-hidden="true">
+                      <path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 4.75a1.25 1.25 0 1 1 0 2.5 1.25 1.25 0 0 1 0-2.5zM10.75 11a1.25 1.25 0 0 1 2.5 0v5a1.25 1.25 0 0 1-2.5 0z"/>
+                    </svg>
+                    <span id="manual-url-error-text"></span>
+                  </span>
+                </span>
                 <div class="field-control" id="manual-url-control">
                   <svg class="field-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
                     <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
@@ -213,12 +221,6 @@
                   </svg>
                   <input type="text" id="manual-url" placeholder="https://..." required>
                 </div>
-                <p class="field-error" id="manual-url-error" role="alert" hidden>
-                  <svg class="field-error-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                    <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
-                  </svg>
-                  <span id="manual-url-error-text"></span>
-                </p>
               </label>
             </div>
             <div class="form-actions">

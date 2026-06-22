@@ -132,6 +132,9 @@ async def create_batch(
     url_col = next((k for k in (reader.fieldnames or []) if k.strip().upper() == "URL"), None)
     if not url_col:
         raise HTTPException(400, "CSV must have a 'URL' column")
+    # Per-row URL format validation happens in the worker (see worker._process_batch)
+    # so a bad row fails the job through the normal failed → notification flow
+    # rather than rejecting the whole upload here.
     urls = [row[url_col].strip() for row in reader if row.get(url_col, "").strip()]
     if not urls:
         raise HTTPException(400, "No URLs found in CSV")

@@ -12,6 +12,7 @@ from allokit import database as db
 from allokit.qr_gen import generate_qr_svg
 from allokit.compose import _build_composed_svg, svg_file_to_drawing, svg_to_pdf
 from allokit.config import TEMPLATE_PATH, LOGO_PATH, JOBS_DIR
+from allokit.validation import URL_RULE_MESSAGE, is_valid_url
 
 _queue = queue.Queue()
 
@@ -60,6 +61,11 @@ def timing_measured() -> bool:
 
 
 class JobCancelled(Exception):
+    pass
+
+
+class JobError(Exception):
+    """A user-facing job failure with a clean, displayable message (no traceback)."""
     pass
 
 
@@ -114,6 +120,77 @@ def cancel(job_id: int) -> bool:
     return True
 
 
+def is_cancellable(job: dict | None) -> bool:
+    """A job that is still waiting or generating may be cancelled."""
+    return bool(job and job["status"] in ("waiting", "generating"))
+
+
+def cancel_all(job_ids: list[int] | None = None) -> dict:
+    """Cancel every active job on the server.
+
+    Client-supplied ids are merged with the live active set (not exclusive):
+    the UI's optimistic targets are cancelled, and any other job still in
+    flight is swept up too. Ids that slipped to 'ready' between the click and
+    this call are force-cancelled so Cancel All always wins.
+
+    Returns the shape the history page expects: cancelled_ids /
+    force_cancelled_ids / skipped_ids / cancelled_count.
+    """
+    cancelled_ids: list[int] = []
+    client_ids = list(dict.fromkeys(job_ids or []))
+
+    def active_ids():
+        return [j["id"] for j in db.list_jobs() if is_cancellable(j)]
+
+    # Re-scan a few times: a worker can promote a job from waiting -> generating
+    # between passes, so loop until nothing active remains (or we give up).
+    for _ in range(8):
+        targets = list(dict.fromkeys(client_ids + active_ids()))
+        if not targets:
+            break
+        for job_id in targets:
+            job = db.get_job(job_id)
+            if not is_cancellable(job):
+                continue
+            was_waiting = job["status"] == "waiting"
+            if db.cancel_if_active(job_id):
+                # Only clean a waiting job's files here; a generating job's
+                # worker thread is still writing, so it cleans up itself when
+                # _check_cancelled raises JobCancelled.
+                if was_waiting:
+                    _cleanup_job_files(job_id)
+                if job_id not in cancelled_ids:
+                    cancelled_ids.append(job_id)
+        if not active_ids():
+            break
+
+    # Handle client ids that escaped the loop (crossed the finish line to
+    # 'ready' before we could cancel them).
+    force_cancelled_ids: list[int] = []
+    skipped_ids: list[int] = []
+    for job_id in client_ids:
+        if job_id in cancelled_ids:
+            continue
+        job = db.get_job(job_id)
+        if not job:
+            continue
+        if job["status"] == "cancelled":
+            cancelled_ids.append(job_id)
+        elif job["status"] == "ready" and db.force_cancel(job_id):
+            _cleanup_job_files(job_id)
+            force_cancelled_ids.append(job_id)
+            cancelled_ids.append(job_id)
+        else:
+            skipped_ids.append(job_id)
+
+    return {
+        "cancelled_count": len(cancelled_ids),
+        "cancelled_ids": cancelled_ids,
+        "force_cancelled_ids": force_cancelled_ids,
+        "skipped_ids": skipped_ids,
+    }
+
+
 def _process_single(job_id: int, job: dict):
     job_dir = JOBS_DIR / str(job_id)
     job_dir.mkdir(parents=True, exist_ok=True)
@@ -149,8 +226,21 @@ def _process_batch(job_id: int, job: dict):
         reader  = csv.DictReader(f)
         url_col = next((k for k in (reader.fieldnames or []) if k.strip().upper() == "URL"), None)
         if not url_col:
-            raise ValueError("CSV must have a 'URL' column")
-        urls = [row[url_col].strip() for row in reader if row.get(url_col, "").strip()]
+            raise JobError("CSV must have a 'URL' column.")
+        urls = []
+        # enumerate from 2: the header occupies line 1, so this matches the
+        # spreadsheet row number the user sees.
+        for row_num, row in enumerate(reader, start=2):
+            value = (row.get(url_col) or "").strip()
+            if not value:
+                continue
+            if not is_valid_url(value):
+                shown = value if len(value) <= 80 else value[:77] + "..."
+                raise JobError(f'Row {row_num}: "{shown}" is not a valid URL. {URL_RULE_MESSAGE}')
+            urls.append(value)
+
+    if not urls:
+        raise JobError("No valid URLs found in the CSV.")
 
     total = len(urls)
     db.update_job(job_id, status="generating", progress=0, sticker_count=total)
@@ -214,6 +304,13 @@ def _worker():
                 _process_batch(job_id, job)
         except JobCancelled:
             _cleanup_job_files(job_id)
+        except JobError as e:
+            # Clean, user-facing failure (e.g. a bad URL row): store the message
+            # so the failed-status notification shows something readable.
+            _cleanup_job_files(job_id)
+            job = db.get_job(job_id)
+            if job and job["status"] != "cancelled":
+                db.update_job(job_id, status="failed", error=str(e))
         except Exception:
             job = db.get_job(job_id)
             if job and job["status"] != "cancelled":
