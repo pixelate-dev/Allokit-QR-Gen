@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 
-# Project root is one level above this package (not the cwd uvicorn is launched from).
+# Package root (one level above this module).
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 FRONTEND_DIR = PROJECT_ROOT / "frontend"
 

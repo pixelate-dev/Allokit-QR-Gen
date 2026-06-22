@@ -1,4 +1,4 @@
-# Fly.io app config for Allokit client demo.
+# Fly.io app config for Allokit.
 # First deploy: see scripts/fly-init.ps1
 
 app = "allokit-qr-gen"
@@ -34,6 +34,4 @@ primary_region = "ams"
   size = "shared-cpu-1x"
   memory = "512mb"
 
-# Persistent storage requires `fly volumes create` (CLI only). For a demo
-# without terminal setup, data lives in the container filesystem at /data
-# and resets when the machine is replaced.
+# Persistent job storage (create volume with `fly volumes create`).

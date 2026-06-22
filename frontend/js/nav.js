@@ -95,9 +95,7 @@
     });
   }
 
-  // Small screens can't fit the dashboard layout, so we gate them with a
-  // "open on desktop" overlay. CSS controls visibility via a media query;
-  // this just injects the markup on every page that loads nav.js.
+  // Mobile layout gate: inject overlay markup (visibility controlled in CSS).
   function initMobileGate() {
     if (document.getElementById('mobile-gate')) return;
 

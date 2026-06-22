@@ -28,13 +28,10 @@ QR_X, QR_Y              = 3.6, 3.6
 QR_WIDTH, QR_HEIGHT     = 64.8, 64.8
 MODULE_SIZE, QUIET_ZONE = 20, 2
 
-# Hard cap on rows per CSV batch upload. Checked by main.py before the job
-# is even created, so one runaway upload can't tie up the single worker
-# thread for hours.
+# Maximum rows per CSV batch upload.
 MAX_BATCH_ROWS = 1000
 
-# Rolling average of wall-clock seconds per sticker (QR + compose + PDF page).
-# Seeded from batch runs; used by GET /stats for queue ETA on the client.
+# EWMA seconds-per-sticker; exposed via GET /stats for queue ETA.
 DEFAULT_SECONDS_PER_STICKER = 0.5
 _EWMA_ALPHA = 0.15
 _timing_lock = threading.Lock()
@@ -80,9 +77,7 @@ def enqueue(job_id: int):
 
 
 def recover_pending():
-    """Call once at startup, after start(). Re-queues anything left
-    mid-flight from before the last restart (see database.recover_orphans
-    for why this is safe)."""
+    """Call once at startup, after start(). Re-queues jobs interrupted by restart."""
     ids = db.recover_orphans()
     for job_id in ids:
         enqueue(job_id)
@@ -117,7 +112,7 @@ def cancel(job_id: int) -> bool:
     job = db.get_job(job_id)
     if not job or job["status"] not in ("waiting", "generating"):
         return False
-    # Batch jobs hit 100% while still assembling the PDF — too late to cancel safely.
+    # Progress may reach 100% before PDF assembly completes.
     if job["status"] == "generating" and job.get("progress", 0) >= 100:
         return False
     db.update_job(job_id, status="cancelled", progress=0, pdf_path=None, error=None)
@@ -134,13 +129,10 @@ def is_cancellable(job: dict | None) -> bool:
 def cancel_all(job_ids: list[int] | None = None) -> dict:
     """Cancel every active job on the server.
 
-    Client-supplied ids are merged with the live active set (not exclusive):
-    the UI's optimistic targets are cancelled, and any other job still in
-    flight is swept up too. Ids that slipped to 'ready' between the click and
-    this call are force-cancelled so Cancel All always wins.
+    Merges client-supplied ids with the current active set. Jobs that complete
+    while cancel is in flight are force-cancelled.
 
-    Returns the shape the history page expects: cancelled_ids /
-    force_cancelled_ids / skipped_ids / cancelled_count.
+    Returns cancelled_ids, force_cancelled_ids, skipped_ids, and cancelled_count.
     """
     cancelled_ids: list[int] = []
     client_ids = list(dict.fromkeys(job_ids or []))
@@ -148,8 +140,7 @@ def cancel_all(job_ids: list[int] | None = None) -> dict:
     def active_ids():
         return [j["id"] for j in db.list_jobs() if is_cancellable(j)]
 
-    # Re-scan a few times: a worker can promote a job from waiting -> generating
-    # between passes, so loop until nothing active remains (or we give up).
+    # Repeat until no active jobs remain or the retry limit is reached.
     for _ in range(8):
         targets = list(dict.fromkeys(client_ids + active_ids()))
         if not targets:
@@ -160,9 +151,8 @@ def cancel_all(job_ids: list[int] | None = None) -> dict:
                 continue
             was_waiting = job["status"] == "waiting"
             if db.cancel_if_active(job_id):
-                # Only clean a waiting job's files here; a generating job's
-                # worker thread is still writing, so it cleans up itself when
-                # _check_cancelled raises JobCancelled.
+                # Waiting jobs: clean artifacts here. Generating jobs clean up
+                # when _check_cancelled raises JobCancelled.
                 if was_waiting:
                     _cleanup_job_files(job_id)
                 if job_id not in cancelled_ids:
@@ -170,8 +160,7 @@ def cancel_all(job_ids: list[int] | None = None) -> dict:
         if not active_ids():
             break
 
-    # Handle client ids that escaped the loop (crossed the finish line to
-    # 'ready' before we could cancel them).
+    # Force-cancel client ids that completed before the cancel loop finished.
     force_cancelled_ids: list[int] = []
     skipped_ids: list[int] = []
     for job_id in client_ids:
@@ -234,8 +223,7 @@ def _process_batch(job_id: int, job: dict):
         if not url_col:
             raise JobError("CSV must have a 'URL' column.")
         urls = []
-        # enumerate from 2: the header occupies line 1, so this matches the
-        # spreadsheet row number the user sees.
+        # Row numbers match the spreadsheet (header is row 1).
         for row_num, row in enumerate(reader, start=2):
             value = (row.get(url_col) or "").strip()
             if not value:
@@ -256,12 +244,7 @@ def _process_batch(job_id: int, job: dict):
     pdf_path     = job_dir / "output.pdf"
     tmp_svg_path = job_dir / "_tmp_page.svg"
 
-    # ── Parse the static artwork ONCE, not per sticker ────────────────────
-    # The template (complex vector art) is the same on every page, so svglib
-    # only needs to parse it a single time; the parsed drawing is replayed onto
-    # each page. The per-sticker QR is then painted directly with reportlab
-    # primitives (see qr_gen.draw_qr_on_canvas), skipping svglib's expensive
-    # SVG parse for the hundreds of module paths — the real batch bottleneck.
+    # Parse template once and replay per page; draw QR modules via reportlab.
     template_drawing = svg_file_to_drawing(str(TEMPLATE_PATH))
     if template_drawing is None:
         raise JobError("Could not parse the sticker template.")
@@ -273,9 +256,7 @@ def _process_batch(job_id: int, job: dict):
     upx_x, upx_y = _template_unit_scale(template_str)
     kx, ky = page_w / vb_w, page_h / vb_h
 
-    # The logo is vector art, so it stays on the (correct) svglib pipeline — but
-    # parsed only once per distinct matrix size (logo scale depends on the QR
-    # version). Keyed by the QR canvas size in QR units.
+    # Logo drawing cached by QR canvas size (scale depends on matrix version).
     logo_cache: dict[int, object] = {}
 
     c = rl_canvas.Canvas(str(pdf_path))
@@ -294,16 +275,12 @@ def _process_batch(job_id: int, job: dict):
             N = len(matrix)
             qr_total = (N + 2 * QUIET_ZONE) * MODULE_SIZE
 
-            # Keep the per-sticker SVG artifact (cheap string build, no parse).
             qr_svg = build_qr_svg(matrix, MODULE_SIZE, QUIET_ZONE, str(LOGO_PATH))
             (sticker_dir / "qr_output.svg").write_text(qr_svg, encoding="utf-8")
 
-            # 1) Template artwork (replayed from the single parse).
             renderPDF.draw(template_drawing, c, 0, 0)
 
-            # 2) QR painted straight onto the canvas. The CTM maps QR-space
-            #    (0..qr_total, y-down) → the template's QR window, exactly like
-            #    _build_composed_svg's translate/scale + the SVG y-flip.
+            # Map QR canvas coordinates into the template QR window.
             sx = (QR_WIDTH * upx_x) / qr_total
             sy = (QR_HEIGHT * upx_y) / qr_total
             c.saveState()
@@ -312,7 +289,6 @@ def _process_batch(job_id: int, job: dict):
             draw_qr_on_canvas(c, matrix, MODULE_SIZE, QUIET_ZONE)
             c.restoreState()
 
-            # 3) Centre logo (svglib drawing, parsed once per matrix size).
             logo_drawing = logo_cache.get(qr_total)
             if logo_drawing is None:
                 logo_page = _build_composed_svg(
@@ -357,8 +333,7 @@ def _worker():
         except JobCancelled:
             _cleanup_job_files(job_id)
         except JobError as e:
-            # Clean, user-facing failure (e.g. a bad URL row): store the message
-            # so the failed-status notification shows something readable.
+            # Validation errors: store message only (no traceback).
             _cleanup_job_files(job_id)
             job = db.get_job(job_id)
             if job and job["status"] != "cancelled":

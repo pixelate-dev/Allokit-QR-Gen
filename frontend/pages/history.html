@@ -208,9 +208,7 @@
   let allJobs = [];
   const pendingCancelIds = new Set();
   const cancellingJobIds = new Set();
-  // Cancel All targets: the backend force-cancels these even if one slips to
-  // 'ready' at the finish line, so we keep showing 'cancelled' to avoid a
-  // brief ready/green flash before the force-cancel lands.
+  // Job ids included in an in-flight cancel-all; shown as cancelled until confirmed.
   const forceCancelTargets = new Set();
   let editingJobId = null;
   let secondsPerSticker = 0.5;
@@ -268,23 +266,19 @@
     return jobs.map((job) => {
       if (!pendingCancelIds.has(job.id)) return job;
 
-      // Backend confirmed the cancel — always the truth, release the override.
+      // Server confirmed cancellation.
       if (job.status === 'cancelled') {
         pendingCancelIds.delete(job.id);
         forceCancelTargets.delete(job.id);
         return job;
       }
 
-      // Cancel All target that slipped to 'ready'/'failed' at the finish line.
-      // The cancel-all flow is still force-cancelling it, so keep it shown as
-      // cancelled instead of flashing green/ready. The flow releases the
-      // override once the backend settles (see executeCancelAllJobs).
+      // Force-cancel in progress: keep optimistic cancelled state.
       if (forceCancelTargets.has(job.id)) {
         return cancelledJobPatch(job);
       }
 
-      // Single cancel: a job that reached a terminal non-cancelled state could
-      // not be cancelled, so surface its real state (avoids a false cancel).
+      // Job already terminal and not cancellable: show actual status.
       if (job.status === 'ready' || job.status === 'failed') {
         pendingCancelIds.delete(job.id);
         return job;
@@ -336,8 +330,7 @@
   }
 
   function updateCancelAllBtn() {
-    // While a Cancel All is running the button is locked into its cancelling
-    // state; don't let background polls/renders overwrite the spinner.
+    // Preserve cancelling UI while cancel-all is in flight.
     if (cancelAllInFlight) {
       updateQueueEta();
       return;
@@ -893,11 +886,7 @@
       let remaining = targetIds.slice();
       let skipped = [];
 
-      // A job can cross the finish line while we're cancelling. Re-issue the
-      // force-cancel for any straggler until none remain (cancel always wins).
-      // We trust the backend response (not the optimistic table) to decide
-      // which ids are truly settled, since the table is intentionally showing
-      // every target as cancelled to avoid a ready/green flash.
+      // Retry cancel until the backend reports no remaining targets.
       for (let attempt = 0; attempt < 6 && remaining.length > 0; attempt++) {
         if (attempt > 0) {
           await new Promise((resolve) => setTimeout(resolve, 400));
@@ -908,19 +897,13 @@
           ...(result.force_cancelled_ids || []),
         ].map(Number));
         skipped = (result.skipped_ids || []).map(Number);
-        // Drop settled ids, and stop retrying ids the backend reports it cannot
-        // cancel — retrying those won't change the outcome.
+        // Stop retrying ids the backend cannot cancel.
         remaining = remaining.filter((id) => !settled.has(id) && !skipped.includes(id));
       }
 
-      // Release the optimistic override and re-sync with the backend's truth.
-      // Any target that genuinely survived (e.g. a skipped id) now reverts to
-      // its real status instead of staying falsely 'cancelled'.
+      // Clear optimistic overrides and refresh from the server.
       releaseTargets(targetIds);
       await loadJobs();
-
-      // Any jobs that slipped past the finish line before the cancel landed
-      // simply revert to their real status after loadJobs(); no popup needed.
     } catch (err) {
       releaseTargets(targetIds);
       await loadJobs();

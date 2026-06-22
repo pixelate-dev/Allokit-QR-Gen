@@ -109,7 +109,7 @@ def mark_ready_if_generating(job_id: int, pdf_path: str) -> bool:
 
 
 def force_cancel(job_id: int) -> bool:
-    """Cancel a job even if it just transitioned to ready (used when cancel intent is active)."""
+    """Cancel a job that has reached ready while cancel-all is active."""
     with _lock, _conn() as c:
         cur = c.execute(
             "UPDATE jobs SET status = 'cancelled', progress = 0, pdf_path = NULL, error = NULL "
@@ -130,15 +130,10 @@ def delete_job(job_id):
 
 def recover_orphans():
     """
-    Called once at startup. The job queue lives in memory, so it doesn't
-    survive a process restart — a crash, a power loss, or uvicorn's
-    --reload kicking in mid-job. Processing is idempotent (every job
-    regenerates its output files from scratch by job id), so anything left
-    in 'waiting' or 'generating' is simply reset and handed back to be
-    re-enqueued, instead of getting stuck forever or forcing a manual
-    resubmit.
+    Reset interrupted jobs to waiting on startup. Output is regenerated per
+    job id, so re-enqueue is safe.
 
-    Returns the list of job ids that need to be re-enqueued.
+    Returns job ids to re-enqueue.
     """
     with _lock, _conn() as c:
         rows = c.execute(

@@ -43,8 +43,7 @@ def _blank_template(template):
     """Return the template's outer ``<svg …></svg>`` shell with the artwork
     stripped out — same viewBox/size attributes, no inner paint.
 
-    Used by the batch path to build a logo-only page (template art is rendered
-    separately, once, so it must not be duplicated inside the logo drawing).
+    Used by the batch path to build logo-only pages without duplicating template art.
     """
     m = re.search(r'<svg[^>]*>', template)
     if not m:
@@ -54,10 +53,7 @@ def _blank_template(template):
 
 def _build_composed_svg(qr_svg, template, x, y, width, height):
     """
-    Pure string transform: takes an already-generated QR SVG string and a
-    template SVG string, and returns the composed SVG string. No file I/O.
-    Used directly by main compose_and_export(), and by worker.py's batch
-    path (which needs to build many composed SVGs without writing each to disk).
+    Pure string transform: compose QR SVG into template SVG. No file I/O.
     """
     # QR canvas size from its own viewBox
     vb = re.search(r'viewBox="0 0 ([0-9.]+) ([0-9.]+)"', qr_svg)
@@ -91,19 +87,15 @@ def _build_composed_svg(qr_svg, template, x, y, width, height):
     return template[:insert_at] + nested + template[insert_at:]
 
 
-# svglib reads unitless SVG user-units as CSS pixels (96 per inch), but our
-# Illustrator templates are authored at 72 units per inch. Left uncorrected,
-# every exported PDF comes out at 72/96 = 0.75 of its true physical size.
-# Scaling the parsed drawing by 96/72 restores the correct 1:1 inch mapping.
+# svglib treats unitless SVG user-units as 96 dpi; Illustrator templates use 72 dpi.
+# Scale parsed drawings by 96/72 for correct physical dimensions in PDF output.
 _SVG_PT_SCALE = 96.0 / 72.0
 
 
 def svg_file_to_drawing(svg_path):
-    """Parse an SVG file into a reportlab Drawing at its true physical size.
+    """Parse an SVG file into a reportlab Drawing at true physical size.
 
-    Returns None if svglib can't parse the file. Shared by both the single
-    (svg_to_pdf) and batch (worker._process_batch) export paths so the
-    72-vs-96 size correction stays identical everywhere.
+    Returns None if svglib cannot parse the file.
     """
     drawing = svg2rlg(svg_path)
     if drawing is None:

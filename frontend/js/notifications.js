@@ -309,10 +309,7 @@
       return items;
     }
 
-    // A fast-failing job (e.g. an invalid-URL batch) can be observed for the
-    // first time already terminal, so prevStatus is undefined. We still notify
-    // in that case — the first-ever ingest is seeded separately in ingestJobs,
-    // so this only fires for genuinely new terminal jobs (deduped downstream).
+    // Notify on terminal status even when no prior status was recorded.
     if (!isTerminalStatus(job.status)) {
       return items;
     }
@@ -373,11 +370,7 @@
     return !!document.getElementById('page-history');
   }
 
-  // When a job finishes (ready/failed/cancelled) anywhere but the History
-  // page, a compact popup slides down from the bell — same card style and
-  // animation as the hover panel, but showing only the notification(s) that
-  // just happened. Hovering the bell still reveals the full list. Clicking a
-  // popup item navigates to Jobs & History (failed items open the error modal).
+  // Auto-reveal toast for recent job completions (bell icon).
   const REVEAL_DISMISS_MS = 9000;
   const REVEAL_MAX_ITEMS = 3;
   let revealTimer = null;
@@ -419,7 +412,6 @@
     const list = document.getElementById('notifications-reveal-list');
     if (!reveal || !list || panelOpen) return;
 
-    // Newest first, capped — we only surface what just happened.
     const shown = [...items].reverse().slice(0, REVEAL_MAX_ITEMS);
     list.innerHTML = shown.map(notificationItemHtml).join('');
 
@@ -432,11 +424,8 @@
   function maybeAutoReveal(added) {
     const onHistory = isHistoryPage();
     const revealable = added.filter((item) => {
-      // Manual single generations already show inline on the Generate page.
       if (item.type === 'single') return false;
-      // Failures are important enough to surface on every page, History included.
       if (item.kind === 'failed') return true;
-      // Other completions only pop outside the History page.
       return !onHistory;
     });
     if (revealable.length === 0) return;
@@ -865,7 +854,7 @@
     }
     renderUi();
     window.setInterval(renderUi, 60000);
-    // Generate & History already call ingestJobs() with their own refresh; poll only elsewhere.
+    // Generate and History pages refresh jobs locally; poll elsewhere.
     if (!document.getElementById('page-generate') && !document.getElementById('page-history')) {
       initPolling();
     }

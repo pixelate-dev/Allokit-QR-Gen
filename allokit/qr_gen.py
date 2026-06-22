@@ -5,10 +5,10 @@ from reportlab.lib.colors import HexColor
 
 from allokit.config import LOGO_PATH
 
-# Minimum matrix version so the fixed 13×13 logo hole stays within level-H recovery.
+# Minimum matrix version for the 13×13 centre logo (level-H recovery).
 MIN_QR_VERSION = 6
 
-# Shared fills, kept identical to the SVG path ("#111111" body / "white" light).
+# Fill colors match the SVG output.
 _QR_DARK = HexColor("#111111")
 _QR_LIGHT = HexColor("#ffffff")
 
@@ -22,12 +22,7 @@ def _make_qr(data: str):
 
 
 def _build_logo_group(ms, total, logo_path):
-    """Return the ``<g>…</g>`` SVG fragment that places logo.svg in the centre.
-
-    Factored out of generate_qr_svg so the exact same fragment can also be
-    composed on its own (logo-only page) for the direct-to-canvas batch path.
-    The output is byte-for-byte what generate_qr_svg used to emit inline.
-    """
+    """Return the ``<g>…</g>`` SVG fragment that places logo.svg in the centre."""
     logo_s = 13 * ms
     lx = (total - logo_s) / 2
     ly = (total - logo_s) / 2
@@ -63,11 +58,7 @@ def _build_logo_group(ms, total, logo_path):
 
 
 def build_qr_svg(matrix, module_size=20, quiet_zone=4, logo_path=None):
-    """Build the styled QR SVG string from an already-encoded matrix.
-
-    Pure string builder (no QR encoding, no file I/O) so the batch path can
-    encode each QR once and reuse the matrix for the direct-canvas render.
-    """
+    """Build the styled QR SVG string from an already-encoded matrix."""
     if logo_path is None:
         logo_path = str(LOGO_PATH)
 
@@ -216,10 +207,7 @@ def generate_qr_svg(data, filepath="qr_output.svg", module_size=20, quiet_zone=4
     return svg
 
 
-# ── Direct-to-canvas rendering ─────────────────────────────────────────────
-# These mirror generate_qr_svg's geometry exactly but paint onto a reportlab
-# canvas, so the batch path can skip svglib's per-sticker SVG parse (the CPU
-# bottleneck). Verified pixel-identical to the svglib output.
+# Direct-to-canvas QR rendering (same geometry as generate_qr_svg).
 
 def _q2c(p, cur, ctrl, end):
     """Append an SVG quadratic (control ``ctrl`` → ``end``) to reportlab path

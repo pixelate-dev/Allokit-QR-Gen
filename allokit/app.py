@@ -37,9 +37,8 @@ app = FastAPI(title="Allokit QR Generator", lifespan=lifespan)
 
 
 # ── Auth ──────────────────────────────────────────────────────────────────
-# Set the ALLOKIT_API_KEY environment variable to require an X-API-Key
-# header on every mutating request. Unset (the default, for local dev) =
-# no auth at all. Set this before exposing the API beyond your own machine.
+# Set ALLOKIT_API_KEY to require an X-API-Key header on mutating requests.
+# Unset = no auth (local development).
 API_KEY = os.environ.get("ALLOKIT_API_KEY")
 
 
@@ -49,9 +48,7 @@ def require_api_key(x_api_key: Optional[str] = Header(default=None)):
 
 
 # ── CORS ──────────────────────────────────────────────────────────────────
-# Set ALLOKIT_CORS_ORIGINS to a comma-separated list (e.g.
-# "https://app.allokit.com,https://allokit.com") to lock this down.
-# Unset (the default) = allow any origin — fine for local dev only.
+# Comma-separated allowed origins, or * (default).
 _cors_env = os.environ.get("ALLOKIT_CORS_ORIGINS", "*")
 origins = ["*"] if _cors_env.strip() == "*" else [o.strip() for o in _cors_env.split(",")]
 
@@ -100,8 +97,7 @@ def get_job(job_id: int):
 
 @app.post("/jobs/single", dependencies=[Depends(require_api_key)])
 def create_single(body: SingleJobRequest):
-    # Validate server-side too: the front-end blocks invalid URLs, but a direct
-    # API call or browser extension could bypass that.
+    # Server-side URL validation.
     url = body.url.strip()
     if not is_valid_url(url):
         raise HTTPException(400, f"Enter a valid URL. {URL_RULE_MESSAGE}")
@@ -116,9 +112,7 @@ async def create_batch(
     file: UploadFile = File(...),
     client_token: Optional[str] = Form(default=None),
 ):
-    # Idempotency: the client upload queue can re-send the same item if a page
-    # navigation interrupts it after the job was created but before it recorded
-    # the response. Returning the existing job prevents duplicate batch jobs.
+    # Idempotent batch create via client_token.
     if client_token:
         existing = db.get_job_by_client_token(client_token)
         if existing:
@@ -132,9 +126,7 @@ async def create_batch(
     url_col = next((k for k in (reader.fieldnames or []) if k.strip().upper() == "URL"), None)
     if not url_col:
         raise HTTPException(400, "CSV must have a 'URL' column")
-    # Per-row URL format validation happens in the worker (see worker._process_batch)
-    # so a bad row fails the job through the normal failed → notification flow
-    # rather than rejecting the whole upload here.
+    # Per-row URL validation runs in the worker during generation.
     urls = [row[url_col].strip() for row in reader if row.get(url_col, "").strip()]
     if not urls:
         raise HTTPException(400, "No URLs found in CSV")
@@ -146,7 +138,7 @@ async def create_batch(
             name=name, type_="batch", sticker_count=len(urls), client_token=client_token
         )
     except sqlite3.IntegrityError:
-        # A concurrent request with the same token won the race — return its job.
+        # Duplicate client_token from a concurrent request.
         existing = db.get_job_by_client_token(client_token)
         if existing:
             return existing

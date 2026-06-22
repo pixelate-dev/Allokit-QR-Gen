@@ -379,7 +379,7 @@
   const manualUrlError    = document.getElementById('manual-url-error');
   const manualUrlErrorText = document.getElementById('manual-url-error-text');
 
-  // Mirror of the server-side rule (allokit/validation.py): http(s) + a host.
+  // Matches allokit/validation.py: http(s) URL with a host.
   function isValidUrl(value) {
     let url;
     try {
@@ -847,8 +847,7 @@
         ? `Selected: ${count} CSV files`
         : `Selected: ${selectedFiles[0].name}`;
 
-    // Single file keeps an editable project name; multiple files each use
-    // their own filename, so the shared name field doesn't apply.
+    // Multiple files use their own filename; hide the shared name field.
     batchNameField.hidden = multi;
     batchNameInput.disabled = multi;
     batchMultiNote.hidden = !multi;
@@ -912,8 +911,7 @@
     batchSubmitBtn.textContent = `Queuing ${files.length} files…`;
 
     try {
-      // Reuse the shared upload queue: it uploads one at a time, persists
-      // across navigation, and emits the events this page already listens to.
+      // Enqueue via shared CSV upload queue (serialized, persisted).
       await window.AllokitCsvQueue.enqueueFiles(files);
       resetBatchForm();
       loadJobsQueue();
@@ -937,11 +935,7 @@
     }
   });
 
-  // ===================================================================
-  // Live queue panel
-  // Server provides waiting jobs; UI shows the most recent that fit the panel.
-  // Poll syncs data + labels. Submit drives the stack insert animation.
-  // ===================================================================
+  // Live queue panel (waiting jobs, poll sync, stack animation).
   const RECENT_QUEUE_LIMIT_MIN = 1;
   const RECENT_QUEUE_LIMIT_MAX = 50;
   const RECENT_QUEUE_LIMIT_FALLBACK = 3;
@@ -957,7 +951,7 @@
   const pendingSubmitJobs = new Map();
   /** In-flight queue cancels — ignore duplicate clicks for the same job. */
   const cancellingQueueJobIds = new Set();
-  /** Locally cancelled — stay hidden until the server confirms cancelled/failed/ready. */
+  /** Locally cancelled; hidden until server confirms terminal status. */
   const pendingCancelIds = new Set();
 
   function syncPendingCancelIds(jobs) {
@@ -1050,7 +1044,7 @@
     return lastWaitingCount > 0 || hasGenerator;
   }
 
-  /** Lone waiting job with nothing running yet goes straight to Now generating — hide from recent queue. */
+  /** Hide sole waiting job from recent queue when shown in Now generating. */
   function shouldShowJobInRecentQueue(job, waitingAsc) {
     const hasGenerator = document.getElementById('now-generating')?.querySelector('.queue-item') != null;
     if (!hasGenerator && waitingAsc.length === 1 && waitingAsc[0].id === job.id) {
@@ -1830,11 +1824,7 @@
     animateRunningTransition(nowGeneratingEl, progressEl, running, currentCard);
   }
 
-  // Guards against overlapping/out-of-order /jobs fetches. Bursts of triggers
-  // (CSV upload events + interval) can resolve responses out of order and
-  // reapply a stale snapshot — reintroducing a job that already moved on and
-  // duplicating it across the running/queued sections. Serialize so only the
-  // latest state is ever applied, with one trailing catch-up run.
+  // Serialize /jobs fetches so only the latest response is applied.
   let jobsQueueLoading = false;
   let jobsQueueReloadPending = false;
 

@@ -4,7 +4,7 @@ from urllib.parse import urlsplit
 
 ALLOWED_URL_SCHEMES = ("http", "https")
 
-# Single source of truth for the user-facing rule, reused in error messages.
+# Shared URL validation message for API and client errors.
 URL_RULE_MESSAGE = "URLs must start with http:// or https://."
 
 

@@ -103,10 +103,7 @@
     const formData = new FormData();
     formData.append('name', item.name);
     formData.append('file', item.blob, item.fileName);
-    // Idempotency key: if a navigation interrupts this upload after the job is
-    // created but before we delete the queue item, the retry reuses the same
-    // token so the server returns the existing job instead of duplicating it.
-    formData.append('client_token', item.id);
+    formData.append('client_token', item.id);  // idempotent upload retries
 
     const abortController = new AbortController();
     currentAbortController = abortController;
