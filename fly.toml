@@ -1,33 +1,35 @@
-# Fly.io app config for Allokit client demo.
-# First deploy: see scripts/fly-init.ps1
+# fly.toml app configuration file generated for allokit-qr-gen on 2026-06-22T03:37:46Z
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
 
-app = "allokit-demo"
-primary_region = "iad"
+app = 'allokit-qr-gen'
+primary_region = 'iad'
 
 [build]
 
 [env]
-  ALLOKIT_DATA_DIR = "/data"
+  ALLOKIT_DATA_DIR = '/data'
+
+[[mounts]]
+  source = 'allokit_data'
+  destination = '/data'
 
 [http_service]
   internal_port = 8000
   force_https = true
-  auto_stop_machines = "off"
+  auto_stop_machines = 'off'
   auto_start_machines = true
   min_machines_running = 1
-  processes = ["app"]
+  processes = ['app']
 
   [[http_service.checks]]
-    grace_period = "15s"
-    interval = "30s"
-    method = "GET"
-    path = "/stats"
-    timeout = "5s"
+    interval = '30s'
+    timeout = '5s'
+    grace_period = '15s'
+    method = 'GET'
+    path = '/stats'
 
 [[vm]]
-  size = "shared-cpu-1x"
-  memory = "512mb"
-
-[[mounts]]
-  source = "allokit_data"
-  destination = "/data"
+  size = 'shared-cpu-1x'
+  memory = '512mb'
