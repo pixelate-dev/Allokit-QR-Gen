@@ -1911,6 +1911,29 @@ main.is-exiting {
   color: var(--text-muted);
 }
 
+.btn-download.is-loading,
+.btn-download-sm.is-loading {
+  pointer-events: none;
+  cursor: progress;
+  opacity: 1;
+  filter: none;
+}
+
+.btn-download-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(25, 113, 242, 0.25);
+  border-top-color: var(--blue);
+  border-radius: 50%;
+  flex-shrink: 0;
+  animation: spin 0.7s linear infinite;
+}
+
+.btn-download-spinner--sm {
+  width: 13px;
+  height: 13px;
+}
+
 .btn-download svg { width: 18px; height: 18px; }
 
 /* ── Batch queue panel ─────────────────────────────────────────────── */

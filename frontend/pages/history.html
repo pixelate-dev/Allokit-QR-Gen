@@ -715,7 +715,7 @@
       a.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> PDF';
       a.addEventListener('click', (e) => {
         e.preventDefault();
-        downloadJobPdf(job);
+        downloadJobPdf(job, a);
       });
       td.appendChild(a);
       return;
@@ -770,22 +770,8 @@
     input.addEventListener('blur', () => finish(true));
   }
 
-  async function downloadJobPdf(job) {
-    try {
-      const res = await fetch(`${API_BASE}/jobs/${job.id}/download`);
-      if (!res.ok) throw new Error(`Download failed (${res.status})`);
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `${job.name || 'sticker'}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      URL.revokeObjectURL(url);
-    } catch (err) {
-      alert(`Failed to download PDF: ${err.message}`);
-    }
+  function downloadJobPdf(job, triggerEl) {
+    allokitDownloadJobPdf(job.id, job.name || 'sticker', triggerEl);
   }
 
   function buildCancelButton(jobId) {

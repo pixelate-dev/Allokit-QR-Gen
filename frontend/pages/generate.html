@@ -581,6 +581,7 @@
     resetManualPreviewShell();
     manualLoading.hidden = true;
     setManualStatus('', false);
+    manualDownloadJobId = null;
     manualDownload.classList.add('is-disabled');
     manualDownload.href = '#';
     manualDownload.setAttribute('aria-disabled', 'true');
@@ -645,12 +646,21 @@
       });
   }
 
+  let manualDownloadJobId = null;
+
   function enableDownload(jobId) {
-    manualDownload.href = `${API_BASE}/jobs/${jobId}/download`;
+    manualDownloadJobId = jobId;
+    manualDownload.href = '#';
     manualDownload.classList.remove('is-disabled');
     manualDownload.removeAttribute('aria-disabled');
     manualDownload.tabIndex = 0;
   }
+
+  manualDownload.addEventListener('click', (e) => {
+    e.preventDefault();
+    if (manualDownload.classList.contains('is-disabled') || !manualDownloadJobId) return;
+    allokitDownloadJobPdf(manualDownloadJobId, manualJobName || 'sticker', manualDownload);
+  });
 
   // ===================================================================
   // Manual mode — POST /jobs/single, then watch via SSE /jobs/{id}/progress
