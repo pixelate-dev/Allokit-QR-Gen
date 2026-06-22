@@ -1,0 +1,1 @@
+"""Allokit QR sticker generator."""
