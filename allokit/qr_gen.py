@@ -1,11 +1,16 @@
 import re
 
 import segno
+from reportlab.lib.colors import HexColor
 
 from allokit.config import LOGO_PATH
 
 # Minimum matrix version so the fixed 13×13 logo hole stays within level-H recovery.
 MIN_QR_VERSION = 6
+
+# Shared fills, kept identical to the SVG path ("#111111" body / "white" light).
+_QR_DARK = HexColor("#111111")
+_QR_LIGHT = HexColor("#ffffff")
 
 
 def _make_qr(data: str):
@@ -16,12 +21,56 @@ def _make_qr(data: str):
         return segno.make(data, error='h')
 
 
-def generate_qr_svg(data, filepath="qr_output.svg", module_size=20, quiet_zone=4, logo_path=None):
+def _build_logo_group(ms, total, logo_path):
+    """Return the ``<g>…</g>`` SVG fragment that places logo.svg in the centre.
+
+    Factored out of generate_qr_svg so the exact same fragment can also be
+    composed on its own (logo-only page) for the direct-to-canvas batch path.
+    The output is byte-for-byte what generate_qr_svg used to emit inline.
+    """
+    logo_s = 13 * ms
+    lx = (total - logo_s) / 2
+    ly = (total - logo_s) / 2
+
+    with open(logo_path, "r", encoding="utf-8") as f:
+        svg_src = f.read()
+
+    # Grab source canvas size from viewBox, fall back to width/height attrs
+    vb = re.search(r'viewBox=["\']([^"\']+)["\']', svg_src)
+    if vb:
+        parts = vb.group(1).split()
+        src_w, src_h = float(parts[2]), float(parts[3])
+    else:
+        wm = re.search(r'\bwidth=["\']([0-9.]+)', svg_src)
+        hm = re.search(r'\bheight=["\']([0-9.]+)', svg_src)
+        src_w = float(wm.group(1)) if wm else logo_s
+        src_h = float(hm.group(1)) if hm else logo_s
+
+    # Strip XML declaration, DOCTYPE, and the outer <svg …> / </svg> shell
+    inner = re.sub(r'<\?xml[^?]*\?>\s*', '', svg_src)
+    inner = re.sub(r'<!DOCTYPE[^>]*>\s*', '', inner)
+    inner = re.sub(r'<svg[^>]*>',         '', inner, count=1)
+    inner = re.sub(r'</svg>\s*$',         '', inner).strip()
+
+    # Wrap in a <g> that translates + scales the logo into position
+    sx = logo_s / src_w
+    sy = logo_s / src_h
+    return (
+        f'  <g transform="translate({lx:.2f},{ly:.2f}) scale({sx:.6f},{sy:.6f})">\n'
+        f'{inner}\n'
+        f'  </g>'
+    )
+
+
+def build_qr_svg(matrix, module_size=20, quiet_zone=4, logo_path=None):
+    """Build the styled QR SVG string from an already-encoded matrix.
+
+    Pure string builder (no QR encoding, no file I/O) so the batch path can
+    encode each QR once and reuse the matrix for the direct-canvas render.
+    """
     if logo_path is None:
         logo_path = str(LOGO_PATH)
 
-    qr = _make_qr(data)
-    matrix = qr.matrix
     N = len(matrix)
     ms = module_size
     qz = quiet_zone
@@ -140,46 +189,212 @@ def generate_qr_svg(data, filepath="qr_output.svg", module_size=20, quiet_zone=4
         out.append(f'  <path d="{rounded_rect(fx+pad, fy+pad, bw, bw, rif(r_ball,tl), rif(r_ball,tr), rif(r_ball,br), rif(r_ball,bl))}" fill="#111111"/>')
 
     # ── Logo: logo.svg inlined (no <image> tag — fully embedded) ─────────────
-    logo_s = 13 * ms
-    lx     = (total - logo_s) / 2
-    ly     = (total - logo_s) / 2
-
-    with open(logo_path, "r", encoding="utf-8") as f:
-        svg_src = f.read()
-
-    # Grab source canvas size from viewBox, fall back to width/height attrs
-    vb = re.search(r'viewBox=["\']([^"\']+)["\']', svg_src)
-    if vb:
-        parts = vb.group(1).split()
-        src_w, src_h = float(parts[2]), float(parts[3])
-    else:
-        wm = re.search(r'\bwidth=["\']([0-9.]+)', svg_src)
-        hm = re.search(r'\bheight=["\']([0-9.]+)', svg_src)
-        src_w = float(wm.group(1)) if wm else logo_s
-        src_h = float(hm.group(1)) if hm else logo_s
-
-    # Strip XML declaration, DOCTYPE, and the outer <svg …> / </svg> shell
-    inner = re.sub(r'<\?xml[^?]*\?>\s*', '', svg_src)
-    inner = re.sub(r'<!DOCTYPE[^>]*>\s*', '', inner)
-    inner = re.sub(r'<svg[^>]*>',         '', inner, count=1)
-    inner = re.sub(r'</svg>\s*$',         '', inner).strip()
-
-    # Wrap in a <g> that translates + scales the logo into position
-    sx = logo_s / src_w
-    sy = logo_s / src_h
-    out.append(f'  <g transform="translate({lx:.2f},{ly:.2f}) scale({sx:.6f},{sy:.6f})">')
-    out.append(inner)
-    out.append('  </g>')
+    out.append(_build_logo_group(ms, total, logo_path))
 
     out.append('</svg>')
 
-    svg = '\n'.join(out)
+    return '\n'.join(out)
+
+
+def generate_qr_svg(data, filepath="qr_output.svg", module_size=20, quiet_zone=4, logo_path=None):
+    """Encode ``data`` and write its styled QR SVG to ``filepath``; returns the
+    SVG string. Thin wrapper around build_qr_svg (kept for the single-job path
+    and existing callers)."""
+    if logo_path is None:
+        logo_path = str(LOGO_PATH)
+
+    qr = _make_qr(data)
+    matrix = qr.matrix
+    svg = build_qr_svg(matrix, module_size, quiet_zone, logo_path)
 
     with open(filepath, 'w', encoding='utf-8') as f:
         f.write(svg)
 
+    N = len(matrix)
+    total = (N + 2 * quiet_zone) * module_size
     print(f"Saved -> {filepath}  ({total}x{total}px, matrix {N}x{N})")
     return svg
+
+
+# ── Direct-to-canvas rendering ─────────────────────────────────────────────
+# These mirror generate_qr_svg's geometry exactly but paint onto a reportlab
+# canvas, so the batch path can skip svglib's per-sticker SVG parse (the CPU
+# bottleneck). Verified pixel-identical to the svglib output.
+
+def _q2c(p, cur, ctrl, end):
+    """Append an SVG quadratic (control ``ctrl`` → ``end``) to reportlab path
+    ``p`` as the mathematically exact cubic. Coordinates are rounded to 2
+    decimals first, matching the path strings svglib would have parsed."""
+    x0, y0 = cur
+    qx, qy = round(ctrl[0], 2), round(ctrl[1], 2)
+    ex, ey = round(end[0], 2), round(end[1], 2)
+    p.curveTo(
+        x0 + 2.0 / 3.0 * (qx - x0), y0 + 2.0 / 3.0 * (qy - y0),
+        ex + 2.0 / 3.0 * (qx - ex), ey + 2.0 / 3.0 * (qy - ey),
+        ex, ey,
+    )
+    return (ex, ey)
+
+
+def _round_rect_path(p, x, y, w, h, r_tl=0, r_tr=0, r_br=0, r_bl=0):
+    """Per-corner rounded rectangle — the canvas twin of generate_qr_svg's
+    nested rounded_rect(). Same vertex order so the fill is identical."""
+    R = lambda v: round(v, 2)
+    start = (R(x + r_tl), R(y)) if r_tl else (R(x), R(y))
+    p.moveTo(*start)
+    cur = start
+
+    if r_tr:
+        nxt = (R(x + w - r_tr), R(y)); p.lineTo(*nxt); cur = nxt
+        cur = _q2c(p, cur, (x + w, y), (x + w, y + r_tr))
+    else:
+        nxt = (R(x + w), R(y)); p.lineTo(*nxt); cur = nxt
+
+    if r_br:
+        nxt = (R(x + w), R(y + h - r_br)); p.lineTo(*nxt); cur = nxt
+        cur = _q2c(p, cur, (x + w, y + h), (x + w - r_br, y + h))
+    else:
+        nxt = (R(x + w), R(y + h)); p.lineTo(*nxt); cur = nxt
+
+    if r_bl:
+        nxt = (R(x + r_bl), R(y + h)); p.lineTo(*nxt); cur = nxt
+        cur = _q2c(p, cur, (x, y + h), (x, y + h - r_bl))
+    else:
+        nxt = (R(x), R(y + h)); p.lineTo(*nxt); cur = nxt
+
+    if r_tl:
+        nxt = (R(x), R(y + r_tl)); p.lineTo(*nxt); cur = nxt
+        cur = _q2c(p, cur, (x, y), (x + r_tl, y))
+    else:
+        nxt = (R(x), R(y)); p.lineTo(*nxt); cur = nxt
+
+    p.close()
+
+
+def draw_qr_on_canvas(c, matrix, module_size=20, quiet_zone=2):
+    """Paint the QR (white field, rounded body modules, finder patterns) straight
+    onto reportlab canvas ``c``, skipping svglib entirely.
+
+    The caller must already have set the canvas CTM so QR-space coordinates
+    (0..total, y increasing downward — SVG convention) land in the right place.
+    The 13×13 centre logo zone is left blank; the caller draws the logo on top.
+    Returns ``total`` (the QR canvas size in QR units).
+    """
+    N = len(matrix)
+    ms = module_size
+    qz = quiet_zone
+    total = (N + 2 * qz) * ms
+
+    def px(col): return (col + qz) * ms
+    def py(row): return (row + qz) * ms
+
+    finders = [(0, 0), (0, N - 7), (N - 7, 0)]
+
+    skip = set()
+    for (fr, fc) in finders:
+        for r in range(fr - 1, fr + 8):
+            for col in range(fc - 1, fc + 8):
+                if 0 <= r < N and 0 <= col < N:
+                    skip.add((r, col))
+    logo_r0 = (N - 13) // 2
+    logo_c0 = (N - 13) // 2
+    for r in range(logo_r0, logo_r0 + 13):
+        for col in range(logo_c0, logo_c0 + 13):
+            skip.add((r, col))
+
+    # White field behind the modules (the <rect fill="white"/>).
+    c.setFillColor(_QR_LIGHT)
+    c.rect(0, 0, total, total, stroke=0, fill=1)
+
+    cr = ms * 0.40
+
+    def is_dark(r, col):
+        if r < 0 or r >= N or col < 0 or col >= N:
+            return False
+        if (r, col) in skip:
+            return False
+        return bool(matrix[r][col])
+
+    # Body modules — one combined path, single fill (tiles never overlap).
+    body = c.beginPath()
+    for row in range(N):
+        for col in range(N):
+            if (row, col) not in skip and matrix[row][col]:
+                x = px(col)
+                y = py(row)
+                t = is_dark(row - 1, col)
+                b = is_dark(row + 1, col)
+                l = is_dark(row, col - 1)
+                r = is_dark(row, col + 1)
+                _round_rect_path(
+                    body, x, y, ms, ms,
+                    r_tl=cr if not t and not l else 0,
+                    r_tr=cr if not t and not r else 0,
+                    r_br=cr if not b and not r else 0,
+                    r_bl=cr if not b and not l else 0,
+                )
+    c.setFillColor(_QR_DARK)
+    c.drawPath(body, stroke=0, fill=1)
+
+    # Finder patterns: dark frame → white cutout → dark ball.
+    finder_corner = {
+        (0,     0    ): (True,  False, False, False),
+        (0,     N - 7): (False, True,  False, False),
+        (N - 7, 0    ): (False, False, False, True),
+    }
+    r_outer = ms * 3
+    r_inner = ms * 2
+    r_ball  = ms * 1
+    border  = ms
+
+    def rif(val, active): return val if active else 0
+
+    for (fr, fc) in finders:
+        fx = px(fc)
+        fy = py(fr)
+        fw = 7 * ms
+        tl, tr, br, bl = finder_corner[(fr, fc)]
+        iw = fw - 2 * border
+
+        outer = c.beginPath()
+        _round_rect_path(outer, fx, fy, fw, fw,
+                         rif(r_outer, tl), rif(r_outer, tr), rif(r_outer, br), rif(r_outer, bl))
+        c.setFillColor(_QR_DARK)
+        c.drawPath(outer, stroke=0, fill=1)
+
+        inner = c.beginPath()
+        _round_rect_path(inner, fx + border, fy + border, iw, iw,
+                         rif(r_inner, tl), rif(r_inner, tr), rif(r_inner, br), rif(r_inner, bl))
+        c.setFillColor(_QR_LIGHT)
+        c.drawPath(inner, stroke=0, fill=1)
+
+        pad = 2 * ms
+        bw  = 3 * ms
+        ball = c.beginPath()
+        _round_rect_path(ball, fx + pad, fy + pad, bw, bw,
+                         rif(r_ball, tl), rif(r_ball, tr), rif(r_ball, br), rif(r_ball, bl))
+        c.setFillColor(_QR_DARK)
+        c.drawPath(ball, stroke=0, fill=1)
+
+    return total
+
+
+def logo_only_qr_svg(module_size, total, logo_path=None):
+    """A QR-canvas-sized SVG holding ONLY the centre logo group.
+
+    Composed against a blank template and parsed once per matrix size, this
+    keeps the (vector) logo on the exact svglib pipeline while the modules are
+    drawn directly — guaranteeing identical logo placement/scale/orientation.
+    """
+    if logo_path is None:
+        logo_path = str(LOGO_PATH)
+    group = _build_logo_group(module_size, total, logo_path)
+    return (
+        f'<svg xmlns="http://www.w3.org/2000/svg" '
+        f'xmlns:xlink="http://www.w3.org/1999/xlink" '
+        f'width="{total}" height="{total}" viewBox="0 0 {total} {total}">\n'
+        f'{group}\n</svg>'
+    )
 
 
 if __name__ == '__main__':

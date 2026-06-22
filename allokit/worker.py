@@ -1,5 +1,6 @@
 import csv
 import queue
+import re
 import shutil
 import threading
 import time
@@ -9,8 +10,13 @@ from reportlab.graphics import renderPDF
 from reportlab.pdfgen import canvas as rl_canvas
 
 from allokit import database as db
-from allokit.qr_gen import generate_qr_svg
-from allokit.compose import _build_composed_svg, svg_file_to_drawing, svg_to_pdf
+from allokit.qr_gen import (
+    generate_qr_svg, _make_qr, build_qr_svg, draw_qr_on_canvas, logo_only_qr_svg,
+)
+from allokit.compose import (
+    _build_composed_svg, _blank_template, _template_unit_scale,
+    svg_file_to_drawing, svg_to_pdf,
+)
 from allokit.config import TEMPLATE_PATH, LOGO_PATH, JOBS_DIR
 from allokit.validation import URL_RULE_MESSAGE, is_valid_url
 
@@ -242,15 +248,38 @@ def _process_batch(job_id: int, job: dict):
     if not urls:
         raise JobError("No valid URLs found in the CSV.")
 
-    total = len(urls)
-    db.update_job(job_id, status="generating", progress=0, sticker_count=total)
+    total_n = len(urls)
+    db.update_job(job_id, status="generating", progress=0, sticker_count=total_n)
 
     template_str = _read_template()
+    blank_tpl    = _blank_template(template_str)
     pdf_path     = job_dir / "output.pdf"
     tmp_svg_path = job_dir / "_tmp_page.svg"
 
+    # ── Parse the static artwork ONCE, not per sticker ────────────────────
+    # The template (complex vector art) is the same on every page, so svglib
+    # only needs to parse it a single time; the parsed drawing is replayed onto
+    # each page. The per-sticker QR is then painted directly with reportlab
+    # primitives (see qr_gen.draw_qr_on_canvas), skipping svglib's expensive
+    # SVG parse for the hundreds of module paths — the real batch bottleneck.
+    template_drawing = svg_file_to_drawing(str(TEMPLATE_PATH))
+    if template_drawing is None:
+        raise JobError("Could not parse the sticker template.")
+    page_w, page_h = template_drawing.width, template_drawing.height
+
+    vb = re.search(r'viewBox=["\']([^"\']+)["\']', template_str)
+    vb_parts = vb.group(1).split() if vb else ["0", "0", str(page_w), str(page_h)]
+    vb_w, vb_h = float(vb_parts[2]), float(vb_parts[3])
+    upx_x, upx_y = _template_unit_scale(template_str)
+    kx, ky = page_w / vb_w, page_h / vb_h
+
+    # The logo is vector art, so it stays on the (correct) svglib pipeline — but
+    # parsed only once per distinct matrix size (logo scale depends on the QR
+    # version). Keyed by the QR canvas size in QR units.
+    logo_cache: dict[int, object] = {}
+
     c = rl_canvas.Canvas(str(pdf_path))
-    first = True
+    c.setPageSize((page_w, page_h))
 
     try:
         for i, url in enumerate(urls):
@@ -260,23 +289,46 @@ def _process_batch(job_id: int, job: dict):
             sticker_dir = job_dir / "stickers" / f"{i + 1:04d}"
             sticker_dir.mkdir(parents=True, exist_ok=True)
 
-            qr_svg = generate_qr_svg(
-                url, str(sticker_dir / "qr_output.svg"),
-                MODULE_SIZE, QUIET_ZONE, str(LOGO_PATH),
-            )
-            composed = _build_composed_svg(qr_svg, template_str, QR_X, QR_Y, QR_WIDTH, QR_HEIGHT)
+            qr = _make_qr(url)
+            matrix = qr.matrix
+            N = len(matrix)
+            qr_total = (N + 2 * QUIET_ZONE) * MODULE_SIZE
 
-            tmp_svg_path.write_text(composed, encoding='utf-8')
-            drawing = svg_file_to_drawing(str(tmp_svg_path))
-            if drawing is not None:
-                if first:
-                    c.setPageSize((drawing.width, drawing.height))
-                    first = False
-                renderPDF.draw(drawing, c, 0, 0)
-                c.showPage()
+            # Keep the per-sticker SVG artifact (cheap string build, no parse).
+            qr_svg = build_qr_svg(matrix, MODULE_SIZE, QUIET_ZONE, str(LOGO_PATH))
+            (sticker_dir / "qr_output.svg").write_text(qr_svg, encoding="utf-8")
+
+            # 1) Template artwork (replayed from the single parse).
+            renderPDF.draw(template_drawing, c, 0, 0)
+
+            # 2) QR painted straight onto the canvas. The CTM maps QR-space
+            #    (0..qr_total, y-down) → the template's QR window, exactly like
+            #    _build_composed_svg's translate/scale + the SVG y-flip.
+            sx = (QR_WIDTH * upx_x) / qr_total
+            sy = (QR_HEIGHT * upx_y) / qr_total
+            c.saveState()
+            c.translate(QR_X * upx_x * kx, page_h - QR_Y * upx_y * ky)
+            c.scale(sx * kx, -sy * ky)
+            draw_qr_on_canvas(c, matrix, MODULE_SIZE, QUIET_ZONE)
+            c.restoreState()
+
+            # 3) Centre logo (svglib drawing, parsed once per matrix size).
+            logo_drawing = logo_cache.get(qr_total)
+            if logo_drawing is None:
+                logo_page = _build_composed_svg(
+                    logo_only_qr_svg(MODULE_SIZE, qr_total, str(LOGO_PATH)),
+                    blank_tpl, QR_X, QR_Y, QR_WIDTH, QR_HEIGHT,
+                )
+                tmp_svg_path.write_text(logo_page, encoding="utf-8")
+                logo_drawing = svg_file_to_drawing(str(tmp_svg_path))
+                logo_cache[qr_total] = logo_drawing
+            if logo_drawing is not None:
+                renderPDF.draw(logo_drawing, c, 0, 0)
+
+            c.showPage()
 
             _record_sticker_duration(time.perf_counter() - t0)
-            db.update_job(job_id, progress=int((i + 1) / total * 100))
+            db.update_job(job_id, progress=int((i + 1) / total_n * 100))
 
         tmp_svg_path.unlink(missing_ok=True)
         c.save()

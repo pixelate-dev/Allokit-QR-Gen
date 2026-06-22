@@ -39,6 +39,19 @@ def _template_unit_scale(template):
     return upx_x, upx_y
 
 
+def _blank_template(template):
+    """Return the template's outer ``<svg …></svg>`` shell with the artwork
+    stripped out — same viewBox/size attributes, no inner paint.
+
+    Used by the batch path to build a logo-only page (template art is rendered
+    separately, once, so it must not be duplicated inside the logo drawing).
+    """
+    m = re.search(r'<svg[^>]*>', template)
+    if not m:
+        raise ValueError("No <svg> tag found in template")
+    return m.group(0) + "</svg>"
+
+
 def _build_composed_svg(qr_svg, template, x, y, width, height):
     """
     Pure string transform: takes an already-generated QR SVG string and a
