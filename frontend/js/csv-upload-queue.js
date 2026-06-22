@@ -5,6 +5,8 @@
   const LOCK_NAME = 'allokit-csv-queue';
 
   let processing = false;
+  let userCancelled = false;
+  let currentAbortController = null;
   const statusListeners = new Set();
 
   function apiBase() {
@@ -89,6 +91,8 @@
   }
 
   async function uploadItem(item) {
+    if (userCancelled) return null;
+
     await putItem({ ...item, status: 'uploading', error: null });
 
     const formData = new FormData();
@@ -99,13 +103,43 @@
     // token so the server returns the existing job instead of duplicating it.
     formData.append('client_token', item.id);
 
-    const res = await fetch(`${apiBase()}/jobs/batch`, { method: 'POST', body: formData });
+    const abortController = new AbortController();
+    currentAbortController = abortController;
+
+    let res;
+    try {
+      res = await fetch(`${apiBase()}/jobs/batch`, {
+        method: 'POST',
+        body: formData,
+        signal: abortController.signal,
+      });
+    } catch (err) {
+      if (err.name === 'AbortError' || userCancelled) {
+        try { await deleteItem(item.id); } catch (_) {}
+        return null;
+      }
+      throw err;
+    } finally {
+      if (currentAbortController === abortController) {
+        currentAbortController = null;
+      }
+    }
+
     if (!res.ok) {
       const detail = await res.text();
       throw new Error(detail || `Upload failed (${res.status})`);
     }
 
     const job = await res.json();
+
+    if (userCancelled) {
+      try {
+        await fetch(`${apiBase()}/jobs/${job.id}/cancel`, { method: 'POST' });
+      } catch (_) {}
+      try { await deleteItem(item.id); } catch (_) {}
+      return null;
+    }
+
     if (item.batchId) {
       window.AllokitNotifications?.registerBatchJob?.(item.batchId, job.id);
     }
@@ -122,6 +156,8 @@
       await resetStaleUploading();
 
       while (true) {
+        if (userCancelled) break;
+
         const items = await readAll();
         const next = items
           .filter((item) => item.status === 'pending')
@@ -134,6 +170,9 @@
         try {
           await uploadItem(next);
         } catch (err) {
+          if (err.name === 'AbortError' || userCancelled) {
+            continue;
+          }
           console.error(`Failed to queue ${next.fileName}:`, err);
           await putItem({
             ...next,
@@ -170,6 +209,8 @@
     const csvFiles = Array.from(files).filter((f) => f.name.toLowerCase().endsWith('.csv'));
     if (csvFiles.length === 0) return 0;
 
+    userCancelled = false;
+
     const batchId = crypto.randomUUID();
     window.AllokitNotifications?.registerUploadBatch?.(batchId, csvFiles.length);
 
@@ -199,6 +240,35 @@
     emitStatus(await getStatus());
   }
 
+  async function cancelAllPending() {
+    userCancelled = true;
+    if (currentAbortController) {
+      currentAbortController.abort();
+    }
+
+    const items = await readAll();
+    const batchCounts = {};
+    let cleared = 0;
+
+    for (const item of items) {
+      if (item.status !== 'pending' && item.status !== 'uploading') continue;
+      if (item.batchId) {
+        batchCounts[item.batchId] = (batchCounts[item.batchId] || 0) + 1;
+      }
+      await deleteItem(item.id);
+      cleared++;
+    }
+
+    if (Object.keys(batchCounts).length > 0) {
+      window.AllokitNotifications?.cancelQueuedUploads?.(batchCounts);
+    }
+
+    const status = await getStatus();
+    emitStatus(status);
+    window.dispatchEvent(new CustomEvent('allokit-csv-queue-cancelled', { detail: { cleared } }));
+    return { cleared, batchCounts };
+  }
+
   function onStatusChange(fn) {
     statusListeners.add(fn);
     getStatus().then((status) => fn(status)).catch(() => {});
@@ -210,6 +280,7 @@
     processQueue,
     getStatus,
     clearFailed,
+    cancelAllPending,
     onStatusChange,
   };
 

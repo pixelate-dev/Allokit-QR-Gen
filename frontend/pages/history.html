@@ -126,7 +126,25 @@
             <div id="queue-progress" class="queue-progress"></div>
             <span id="queue-eta" class="queue-eta" aria-live="polite"></span>
           </div>
-          <button type="button" id="cancel-all-btn" disabled>Cancel All</button>
+          <div class="cancel-all-wrap">
+            <button type="button" id="cancel-all-btn" disabled aria-haspopup="dialog" aria-expanded="false">Cancel All</button>
+            <div id="cancel-all-confirm" class="cancel-all-confirm" role="dialog" aria-labelledby="cancel-all-confirm-label" hidden>
+              <div class="cancel-all-confirm-head">
+                <span class="cancel-all-confirm-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                    <line x1="12" y1="9" x2="12" y2="13"/>
+                    <line x1="12" y1="17" x2="12.01" y2="17"/>
+                  </svg>
+                </span>
+                <p id="cancel-all-confirm-label" class="cancel-all-confirm-text"></p>
+              </div>
+              <div class="cancel-all-confirm-actions">
+                <button type="button" class="cancel-all-confirm-no">Keep</button>
+                <button type="button" class="cancel-all-confirm-yes">Cancel all</button>
+              </div>
+            </div>
+          </div>
           <button type="button" id="add-csv-btn">+ Add CSV</button>
           <input type="file" id="add-csv-input" accept=".csv" multiple hidden>
         </div>
@@ -176,13 +194,25 @@
 <script src="../js/csv-upload-queue.js"></script>
 <script>
   const tbody = document.getElementById('jobs-tbody');
+  const cancelAllWrap = document.querySelector('.cancel-all-wrap');
   const cancelAllBtn = document.getElementById('cancel-all-btn');
+  const cancelAllConfirmEl = document.getElementById('cancel-all-confirm');
+  const cancelAllConfirmText = cancelAllConfirmEl.querySelector('.cancel-all-confirm-text');
+  const cancelAllConfirmYes = cancelAllConfirmEl.querySelector('.cancel-all-confirm-yes');
+  const cancelAllConfirmNo = cancelAllConfirmEl.querySelector('.cancel-all-confirm-no');
+  let cancelAllConfirmOpen = false;
+  let csvQueuePending = 0;
+  let cancelAllInFlight = false;
   const queueStatusEl = document.getElementById('queue-status');
   const queueProgressEl = document.getElementById('queue-progress');
   const queueEtaEl = document.getElementById('queue-eta');
   let allJobs = [];
   const pendingCancelIds = new Set();
   const cancellingJobIds = new Set();
+  // Cancel All targets: the backend force-cancels these even if one slips to
+  // 'ready' at the finish line, so we keep showing 'cancelled' to avoid a
+  // brief ready/green flash before the force-cancel lands.
+  const forceCancelTargets = new Set();
   let editingJobId = null;
   let secondsPerSticker = 0.5;
   const motionOk = !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -239,7 +269,24 @@
     return jobs.map((job) => {
       if (!pendingCancelIds.has(job.id)) return job;
 
-      if (job.status === 'cancelled' || job.status === 'ready' || job.status === 'failed') {
+      // Backend confirmed the cancel — always the truth, release the override.
+      if (job.status === 'cancelled') {
+        pendingCancelIds.delete(job.id);
+        forceCancelTargets.delete(job.id);
+        return job;
+      }
+
+      // Cancel All target that slipped to 'ready'/'failed' at the finish line.
+      // The cancel-all flow is still force-cancelling it, so keep it shown as
+      // cancelled instead of flashing green/ready. The flow releases the
+      // override once the backend settles (see executeCancelAllJobs).
+      if (forceCancelTargets.has(job.id)) {
+        return cancelledJobPatch(job);
+      }
+
+      // Single cancel: a job that reached a terminal non-cancelled state could
+      // not be cancelled, so surface its real state (avoids a false cancel).
+      if (job.status === 'ready' || job.status === 'failed') {
         pendingCancelIds.delete(job.id);
         return job;
       }
@@ -250,7 +297,10 @@
 
   function applyOptimisticCancel(jobs) {
     const ids = jobs.map((job) => job.id);
-    ids.forEach((id) => pendingCancelIds.add(id));
+    ids.forEach((id) => {
+      pendingCancelIds.add(id);
+      forceCancelTargets.add(id);
+    });
 
     allJobs = allJobs.map((job) => (
       pendingCancelIds.has(job.id) ? cancelledJobPatch(job) : job
@@ -269,11 +319,87 @@
     return job.status === 'waiting' || job.status === 'generating';
   }
 
+  function buildCancelAllLabel() {
+    const jobCount = allJobs.filter(canCancelJob).length;
+    const parts = [];
+    if (jobCount === 1) parts.push('1 active job');
+    else if (jobCount > 1) parts.push(`${jobCount} active jobs`);
+    if (csvQueuePending === 1) parts.push('1 queued file');
+    else if (csvQueuePending > 1) parts.push(`${csvQueuePending} queued files`);
+    return parts.join(' and ') || 'everything';
+  }
+
+  function setCancelAllCancellingState() {
+    cancelAllBtn.disabled = true;
+    cancelAllBtn.classList.add('is-cancelling');
+    cancelAllBtn.setAttribute('aria-busy', 'true');
+    cancelAllBtn.innerHTML = '<span class="cancel-all-spinner" aria-hidden="true"></span>Cancelling…';
+  }
+
   function updateCancelAllBtn() {
-    const count = allJobs.filter(canCancelJob).length;
-    cancelAllBtn.disabled = count === 0;
-    cancelAllBtn.textContent = count > 0 ? `Cancel All (${count})` : 'Cancel All';
+    // While a Cancel All is running the button is locked into its cancelling
+    // state; don't let background polls/renders overwrite the spinner.
+    if (cancelAllInFlight) {
+      updateQueueEta();
+      return;
+    }
+
+    cancelAllBtn.classList.remove('is-cancelling');
+    cancelAllBtn.removeAttribute('aria-busy');
+
+    const jobCount = allJobs.filter(canCancelJob).length;
+    const total = jobCount + csvQueuePending;
+    cancelAllBtn.disabled = total === 0;
+    cancelAllBtn.textContent = total > 0 ? `Cancel All (${total})` : 'Cancel All';
+    if (total === 0) closeCancelAllConfirm();
     updateQueueEta();
+  }
+
+  function positionCancelAllConfirm() {
+    const rect = cancelAllBtn.getBoundingClientRect();
+    const gap = 6;
+    const width = cancelAllConfirmEl.offsetWidth;
+    const height = cancelAllConfirmEl.offsetHeight;
+    const top = Math.max(8, rect.top - height - gap);
+    const left = Math.max(8, Math.min(rect.right - width, window.innerWidth - width - 8));
+    cancelAllConfirmEl.style.top = `${top}px`;
+    cancelAllConfirmEl.style.left = `${left}px`;
+  }
+
+  function openCancelAllConfirm(label) {
+    cancelAllConfirmText.textContent = `Cancel ${label}?`;
+    document.body.appendChild(cancelAllConfirmEl);
+    cancelAllConfirmEl.hidden = false;
+    positionCancelAllConfirm();
+    cancelAllConfirmEl.classList.add('is-open');
+    cancelAllConfirmOpen = true;
+    cancelAllBtn.setAttribute('aria-expanded', 'true');
+    cancelAllConfirmYes.focus();
+  }
+
+  function closeCancelAllConfirm() {
+    if (!cancelAllConfirmOpen) return;
+    cancelAllConfirmEl.classList.remove('is-open');
+    cancelAllConfirmEl.hidden = true;
+    cancelAllConfirmOpen = false;
+    cancelAllBtn.setAttribute('aria-expanded', 'false');
+    cancelAllConfirmEl.style.top = '';
+    cancelAllConfirmEl.style.left = '';
+    cancelAllWrap.appendChild(cancelAllConfirmEl);
+  }
+
+  function onCancelAllBtnClick() {
+    if (cancelAllInFlight) return;
+
+    const jobCount = allJobs.filter(canCancelJob).length;
+    if (jobCount === 0 && csvQueuePending === 0) return;
+
+    if (cancelAllConfirmOpen) {
+      closeCancelAllConfirm();
+      return;
+    }
+
+    openCancelAllConfirm(buildCancelAllLabel());
   }
 
   function isActiveBatchJob(job) {
@@ -717,14 +843,26 @@
     }
   }
 
-  async function cancelAllJobs() {
+  async function executeCancelAllJobs() {
+    if (cancelAllInFlight) return;
+    cancelAllInFlight = true;
+    setCancelAllCancellingState();
+
+    try {
+      await runCancelAll();
+    } finally {
+      cancelAllInFlight = false;
+      updateCancelAllBtn();
+    }
+  }
+
+  async function runCancelAll() {
+    if (window.AllokitCsvQueue?.cancelAllPending) {
+      await window.AllokitCsvQueue.cancelAllPending();
+    }
+
     const targets = allJobs.filter(canCancelJob);
     if (targets.length === 0) return;
-
-    const label = targets.length === 1
-      ? '1 active job'
-      : `${targets.length} active jobs`;
-    if (!confirm(`Cancel ${label}? Any job that finishes during cancellation will be cancelled automatically.`)) return;
 
     const targetIds = applyOptimisticCancel(targets).map((id) => Number(id));
 
@@ -745,41 +883,82 @@
       return res.json();
     }
 
-    const notCancelled = (id) => {
-      const job = allJobs.find((j) => j.id === id);
-      return job && job.status !== 'cancelled';
+    const releaseTargets = (ids) => {
+      ids.forEach((id) => {
+        pendingCancelIds.delete(id);
+        forceCancelTargets.delete(id);
+      });
     };
 
     try {
       let remaining = targetIds.slice();
+      let skipped = [];
 
       // A job can cross the finish line while we're cancelling. Re-issue the
       // force-cancel for any straggler until none remain (cancel always wins).
+      // We trust the backend response (not the optimistic table) to decide
+      // which ids are truly settled, since the table is intentionally showing
+      // every target as cancelled to avoid a ready/green flash.
       for (let attempt = 0; attempt < 6 && remaining.length > 0; attempt++) {
         if (attempt > 0) {
           await new Promise((resolve) => setTimeout(resolve, 400));
         }
-        await postCancelAll(remaining);
-        await loadJobs();
-        remaining = remaining.filter(notCancelled);
+        const result = await postCancelAll(remaining);
+        const settled = new Set([
+          ...(result.cancelled_ids || []),
+          ...(result.force_cancelled_ids || []),
+        ].map(Number));
+        skipped = (result.skipped_ids || []).map(Number);
+        // Drop settled ids, and stop retrying ids the backend reports it cannot
+        // cancel — retrying those won't change the outcome.
+        remaining = remaining.filter((id) => !settled.has(id) && !skipped.includes(id));
       }
 
-      targetIds.forEach((id) => pendingCancelIds.delete(id));
+      // Release the optimistic override and re-sync with the backend's truth.
+      // Any target that genuinely survived (e.g. a skipped id) now reverts to
+      // its real status instead of staying falsely 'cancelled'.
+      releaseTargets(targetIds);
+      await loadJobs();
 
-      if (remaining.length > 0) {
-        await loadJobs();
-        alert(remaining.length === 1
-          ? '1 job could not be cancelled.'
-          : `${remaining.length} jobs could not be cancelled.`);
-      }
+      // Any jobs that slipped past the finish line before the cancel landed
+      // simply revert to their real status after loadJobs(); no popup needed.
     } catch (err) {
-      targetIds.forEach((id) => pendingCancelIds.delete(id));
+      releaseTargets(targetIds);
       await loadJobs();
       alert(`Failed to cancel jobs: ${err.message}`);
     }
   }
 
-  cancelAllBtn.addEventListener('click', cancelAllJobs);
+  cancelAllBtn.addEventListener('click', onCancelAllBtnClick);
+
+  cancelAllConfirmNo.addEventListener('click', closeCancelAllConfirm);
+
+  cancelAllConfirmYes.addEventListener('click', () => {
+    closeCancelAllConfirm();
+    executeCancelAllJobs();
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!cancelAllConfirmOpen) return;
+    if (cancelAllWrap.contains(e.target)) return;
+    if (cancelAllConfirmEl.contains(e.target)) return;
+    closeCancelAllConfirm();
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && cancelAllConfirmOpen) {
+      closeCancelAllConfirm();
+      cancelAllBtn.focus();
+    }
+  });
+
+  window.addEventListener('resize', () => {
+    if (cancelAllConfirmOpen) positionCancelAllConfirm();
+  });
+
+  document.querySelector('main')?.addEventListener('scroll', () => {
+    if (cancelAllConfirmOpen) positionCancelAllConfirm();
+  }, { passive: true });
 
   async function renameJob(jobId, newName) {
     try {
@@ -822,6 +1001,9 @@
   });
 
   window.AllokitCsvQueue.onStatusChange((status) => {
+    csvQueuePending = status.pending + status.uploading;
+    updateCancelAllBtn();
+
     if (status.active) {
       addCsvBtn.disabled = true;
       const remaining = status.pending + status.uploading;
@@ -833,6 +1015,10 @@
 
     addCsvBtn.disabled = false;
     addCsvBtn.textContent = '+ Add CSV';
+    loadJobs();
+  });
+
+  window.addEventListener('allokit-csv-queued', () => {
     loadJobs();
   });
 

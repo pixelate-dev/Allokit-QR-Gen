@@ -97,6 +97,28 @@
     saveBatchState(state);
   }
 
+  function cancelQueuedUploads(batchCounts) {
+    if (!batchCounts || typeof batchCounts !== 'object') return;
+    const state = loadBatchState();
+    let changed = false;
+
+    for (const [batchId, count] of Object.entries(batchCounts)) {
+      const removed = Number(count);
+      if (!removed) continue;
+      const batch = state.batches[batchId];
+      if (!batch) continue;
+
+      batch.expectedCount = Math.max(batch.jobIds.length, batch.expectedCount - removed);
+      changed = true;
+
+      if (batch.expectedCount <= 0 && batch.jobIds.length === 0) {
+        delete state.batches[batchId];
+      }
+    }
+
+    if (changed) saveBatchState(state);
+  }
+
   function formatJobIdRange(jobIds) {
     if (window.AllokitJobIds?.formatJobRef) {
       return window.AllokitJobIds.formatJobRef(jobIds);
@@ -408,10 +430,15 @@
   }
 
   function maybeAutoReveal(added) {
-    if (isHistoryPage()) return;
-    // Manual single generations already show inline on the Generate page, so
-    // they don't get a popup — only batch jobs do.
-    const revealable = added.filter((item) => item.type !== 'single');
+    const onHistory = isHistoryPage();
+    const revealable = added.filter((item) => {
+      // Manual single generations already show inline on the Generate page.
+      if (item.type === 'single') return false;
+      // Failures are important enough to surface on every page, History included.
+      if (item.kind === 'failed') return true;
+      // Other completions only pop outside the History page.
+      return !onHistory;
+    });
     if (revealable.length === 0) return;
     showReveal(revealable);
   }
@@ -849,6 +876,7 @@
     ingestJobUpdate,
     registerUploadBatch,
     registerBatchJob,
+    cancelQueuedUploads,
     focusJobKey: FOCUS_JOB_KEY,
     focusJobsKey: FOCUS_JOBS_KEY,
   };

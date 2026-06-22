@@ -95,7 +95,33 @@
     });
   }
 
+  // Small screens can't fit the dashboard layout, so we gate them with a
+  // "open on desktop" overlay. CSS controls visibility via a media query;
+  // this just injects the markup on every page that loads nav.js.
+  function initMobileGate() {
+    if (document.getElementById('mobile-gate')) return;
+
+    const gate = document.createElement('div');
+    gate.id = 'mobile-gate';
+    gate.setAttribute('role', 'dialog');
+    gate.setAttribute('aria-modal', 'true');
+    gate.setAttribute('aria-labelledby', 'mobile-gate-title');
+    gate.innerHTML = `
+      <div class="mobile-gate-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="2" y="3" width="20" height="14" rx="2"/>
+          <line x1="8" y1="21" x2="16" y2="21"/>
+          <line x1="12" y1="17" x2="12" y2="21"/>
+        </svg>
+      </div>
+      <h1 id="mobile-gate-title" class="mobile-gate-title">Please open on desktop</h1>
+      <p class="mobile-gate-text">Allokit's QR generator is designed for larger screens. Open this page on a desktop or laptop for the best experience.</p>
+    `;
+    document.body.appendChild(gate);
+  }
+
   function init() {
+    initMobileGate();
     initEnter();
     initExit();
     initReloadExit();

@@ -968,8 +968,8 @@ main.is-exiting {
 /* ── Panels layout ─────────────────────────────────────────────────── */
 .panels {
   display: grid;
-  grid-template-columns: 1fr 380px;
-  gap: 1.25rem;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
   align-items: stretch;
   flex: 1;
   min-height: 0;
@@ -987,6 +987,14 @@ main.is-exiting {
   min-height: 0;
   position: relative;
   overflow: hidden;
+}
+
+.panel-left {
+  grid-column: 1 / 4;
+}
+
+.panel-right {
+  grid-column: 4 / 5;
 }
 
 .panel-left > form.mode-panel {
@@ -2257,6 +2265,175 @@ body:has(#page-history) .history-chrome-in {
   white-space: nowrap;
 }
 
+.cancel-all-wrap {
+  position: relative;
+}
+
+.cancel-all-confirm {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 300;
+  width: max-content;
+  max-width: min(284px, calc(100vw - 2rem));
+  padding: 0.875rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.16), 0 2px 8px rgba(15, 23, 42, 0.08);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateY(6px) scale(0.98);
+  transform-origin: bottom right;
+  transition:
+    opacity 0.16s var(--ease-out),
+    transform 0.18s var(--ease-out),
+    visibility 0s linear 0.18s;
+}
+
+.cancel-all-confirm.is-open {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: translateY(0) scale(1);
+  transition:
+    opacity 0.16s var(--ease-out),
+    transform 0.18s var(--ease-out),
+    visibility 0s;
+}
+
+/* Caret pointing down toward the Cancel All button. */
+.cancel-all-confirm::before {
+  content: '';
+  position: absolute;
+  bottom: -6px;
+  right: 18px;
+  width: 11px;
+  height: 11px;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  border-bottom-right-radius: 2px;
+  transform: rotate(45deg);
+}
+
+/* Invisible bridge so the gap between popup and button stays interactive. */
+.cancel-all-confirm::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  height: 0.5rem;
+}
+
+.cancel-all-confirm-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin-bottom: 0.875rem;
+}
+
+.cancel-all-confirm-icon {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.cancel-all-confirm-icon svg {
+  width: 15px;
+  height: 15px;
+}
+
+.cancel-all-confirm-text {
+  margin: 0;
+  padding-top: 0.3125rem;
+  font-size: 0.833rem;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--text);
+}
+
+.cancel-all-confirm-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.cancel-all-confirm-no,
+.cancel-all-confirm-yes {
+  flex: 1;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background var(--duration-fast) var(--ease-out),
+              color var(--duration-fast) var(--ease-out),
+              border-color var(--duration-fast) var(--ease-out),
+              box-shadow var(--duration-fast) var(--ease-out),
+              transform var(--duration-fast) var(--ease-out);
+}
+
+.cancel-all-confirm-no {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-secondary);
+}
+
+.cancel-all-confirm-no:hover {
+  background: var(--bg);
+  color: var(--text);
+}
+
+.cancel-all-confirm-yes {
+  border: 1px solid transparent;
+  background: #dc2626;
+  color: #fff;
+  box-shadow: 0 1px 2px rgba(220, 38, 38, 0.2), 0 4px 12px rgba(220, 38, 38, 0.18);
+}
+
+.cancel-all-confirm-yes:hover {
+  background: #b91c1c;
+  box-shadow: 0 2px 4px rgba(220, 38, 38, 0.22), 0 6px 16px rgba(220, 38, 38, 0.2);
+}
+
+.cancel-all-confirm-yes:active {
+  transform: translateY(1px);
+}
+
+.cancel-all-confirm-no:focus-visible,
+.cancel-all-confirm-yes:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 1px;
+}
+
+#cancel-all-btn[aria-expanded="true"] {
+  background: #fee2e2;
+  border-color: #fecaca;
+  color: #b91c1c;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cancel-all-confirm {
+    transform: none;
+    transition: opacity 0.12s var(--ease-out), visibility 0s linear 0.12s;
+  }
+
+  .cancel-all-confirm.is-open {
+    transform: none;
+    transition: opacity 0.12s var(--ease-out), visibility 0s;
+  }
+}
+
 #cancel-all-btn:hover:not(:disabled) {
   background: #fee2e2;
   border-color: #fecaca;
@@ -2266,6 +2443,27 @@ body:has(#page-history) .history-chrome-in {
 #cancel-all-btn:disabled {
   opacity: 0.45;
   cursor: not-allowed;
+}
+
+/* Cancelling-in-progress state: stays fully visible and red-themed so the
+   spinner + label clearly read as "working", not as a faded dead button. */
+#cancel-all-btn.is-cancelling,
+#cancel-all-btn.is-cancelling:disabled {
+  opacity: 1;
+  cursor: progress;
+  background: #fee2e2;
+  border-color: #fecaca;
+  color: #b91c1c;
+}
+
+.cancel-all-spinner {
+  width: 13px;
+  height: 13px;
+  border: 2px solid rgba(185, 28, 28, 0.28);
+  border-top-color: #b91c1c;
+  border-radius: 50%;
+  flex-shrink: 0;
+  animation: spin 0.7s linear infinite;
 }
 
 #add-csv-btn {
@@ -2945,10 +3143,71 @@ main:has(#page-print-guide) {
   }
 }
 
+/* ── Mobile gate ───────────────────────────────────────────────────── */
+#mobile-gate {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  #mobile-gate {
+    display: flex;
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1.25rem;
+    padding: 2rem 1.5rem;
+    text-align: center;
+    background: var(--subtle-blue-gradient);
+  }
+
+  /* Block interaction with (and scrolling of) the underlying app. */
+  body:has(#mobile-gate) {
+    overflow: hidden;
+  }
+
+  .mobile-gate-icon {
+    width: 64px;
+    height: 64px;
+    border-radius: var(--radius-xl);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--blue);
+    background: var(--blue-light);
+    border: 1px solid rgba(25, 113, 242, 0.12);
+  }
+
+  .mobile-gate-icon svg {
+    width: 32px;
+    height: 32px;
+  }
+
+  .mobile-gate-title {
+    margin: 0;
+    font-size: 1.35rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--text);
+  }
+
+  .mobile-gate-text {
+    margin: 0;
+    max-width: 22rem;
+    font-size: 0.95rem;
+    line-height: 1.5;
+    color: var(--text-secondary);
+  }
+}
+
 /* ── Responsive ────────────────────────────────────────────────────── */
 @media (max-width: 1200px) {
   .stats { grid-template-columns: repeat(2, 1fr); }
   .panels { grid-template-columns: 1fr; }
+  .panel-left,
+  .panel-right { grid-column: auto; }
 }
 
 @media (max-width: 768px) {
