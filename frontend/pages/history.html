@@ -25,9 +25,8 @@
 </head>
 <body>
 
-<script>
-  const API_BASE = 'http://localhost:8000';
-</script>
+<script src="/config.js"></script>
+<script src="../js/api.js"></script>
 
 <div id="app">
 
@@ -824,7 +823,7 @@
     }
 
     try {
-      const res = await fetch(`${API_BASE}/jobs/${jobId}/cancel`, { method: 'POST' });
+      const res = await allokitFetch(`/jobs/${jobId}/cancel`, { method: 'POST' });
       if (!res.ok) throw new Error(await res.text());
       const updated = await res.json();
       const i = allJobs.findIndex((j) => j.id === jobId);
@@ -867,7 +866,7 @@
     const targetIds = applyOptimisticCancel(targets).map((id) => Number(id));
 
     async function postCancelAll(ids) {
-      const res = await fetch(`${API_BASE}/jobs/cancel-all`, {
+      const res = await allokitFetch('/jobs/cancel-all', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ job_ids: ids }),
@@ -962,7 +961,7 @@
 
   async function renameJob(jobId, newName) {
     try {
-      const res = await fetch(`${API_BASE}/jobs/${jobId}`, {
+      const res = await allokitFetch(`/jobs/${jobId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: newName }),

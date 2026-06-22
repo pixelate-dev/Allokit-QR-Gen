@@ -8,11 +8,19 @@ from allokit.config import LOGO_PATH
 MIN_QR_VERSION = 6
 
 
+def _make_qr(data: str):
+    """Encode at least MIN_QR_VERSION; bump version automatically when data is too large."""
+    try:
+        return segno.make(data, error='h', version=MIN_QR_VERSION)
+    except segno.DataOverflowError:
+        return segno.make(data, error='h')
+
+
 def generate_qr_svg(data, filepath="qr_output.svg", module_size=20, quiet_zone=4, logo_path=None):
     if logo_path is None:
         logo_path = str(LOGO_PATH)
 
-    qr = segno.make(data, error='h', version=MIN_QR_VERSION)
+    qr = _make_qr(data)
     matrix = qr.matrix
     N = len(matrix)
     ms = module_size

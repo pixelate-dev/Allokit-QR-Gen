@@ -10,7 +10,12 @@
   const statusListeners = new Set();
 
   function apiBase() {
-    return window.API_BASE || 'http://localhost:8000';
+    return window.API_BASE ?? 'http://localhost:8000';
+  }
+
+  function mutateFetch(path, options) {
+    if (window.allokitFetch) return window.allokitFetch(path, options);
+    return fetch(`${apiBase()}${path}`, options);
   }
 
   function openDb() {
@@ -108,7 +113,7 @@
 
     let res;
     try {
-      res = await fetch(`${apiBase()}/jobs/batch`, {
+      res = await mutateFetch('/jobs/batch', {
         method: 'POST',
         body: formData,
         signal: abortController.signal,
@@ -134,7 +139,7 @@
 
     if (userCancelled) {
       try {
-        await fetch(`${apiBase()}/jobs/${job.id}/cancel`, { method: 'POST' });
+        await mutateFetch(`/jobs/${job.id}/cancel`, { method: 'POST' });
       } catch (_) {}
       try { await deleteItem(item.id); } catch (_) {}
       return null;

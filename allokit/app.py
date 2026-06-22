@@ -10,13 +10,14 @@ from typing import Optional
 
 from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import FileResponse, RedirectResponse, Response, StreamingResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from allokit import database as db
 from allokit import worker
 from allokit.compose import _build_composed_svg
-from allokit.config import JOBS_DIR, TEMPLATE_PATH
+from allokit.config import FRONTEND_DIR, JOBS_DIR, TEMPLATE_PATH
 from allokit.validation import URL_RULE_MESSAGE, is_valid_url
 
 MAX_CSV_BYTES = 5 * 1024 * 1024  # 5 MB cap on a batch CSV upload
@@ -277,3 +278,22 @@ async def job_progress(job_id: int):
         event_gen(), media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
+
+
+# ── Frontend (same origin as API in production) ───────────────────────────
+@app.get("/config.js")
+def client_config():
+    """Runtime config for the static UI (API base + optional demo API key)."""
+    lines = ['window.API_BASE = "";']
+    if API_KEY:
+        lines.append(f"window.ALLOKIT_API_KEY = {json.dumps(API_KEY)};")
+    return Response("\n".join(lines) + "\n", media_type="application/javascript")
+
+
+@app.get("/")
+def root():
+    return RedirectResponse(url="/pages/generate.html")
+
+
+if FRONTEND_DIR.is_dir():
+    app.mount("/", StaticFiles(directory=str(FRONTEND_DIR), html=True), name="frontend")

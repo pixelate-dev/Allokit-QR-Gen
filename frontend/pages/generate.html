@@ -23,12 +23,11 @@
 <body>
 
 <!--
-  Adjust this if your API server runs on a different host/port.
-  Start the server from the project root: python run.py
+  Local dev: open pages/*.html directly (API at localhost:8000) or visit
+  http://localhost:8000/pages/generate.html when the server is running.
 -->
-<script>
-  const API_BASE = 'http://localhost:8000';
-</script>
+<script src="/config.js"></script>
+<script src="../js/api.js"></script>
 
 <div id="app">
 
@@ -588,7 +587,7 @@
   }
 
   async function requestJobCancel(jobId) {
-    const res = await fetch(`${API_BASE}/jobs/${jobId}/cancel`, { method: 'POST' });
+    const res = await allokitFetch(`/jobs/${jobId}/cancel`, { method: 'POST' });
     let body = '';
     try {
       body = res.ok ? await res.json() : await res.text();
@@ -697,7 +696,7 @@
     submitBtn.disabled = true;
 
     try {
-      const res = await fetch(`${API_BASE}/jobs/single`, {
+      const res = await allokitFetch('/jobs/single', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, url }),
@@ -885,7 +884,7 @@
     formData.append('file', file);
 
     try {
-      const res = await fetch(`${API_BASE}/jobs/batch`, { method: 'POST', body: formData });
+      const res = await allokitFetch('/jobs/batch', { method: 'POST', body: formData });
       if (!res.ok) throw new Error(await res.text());
       const job = await res.json();
 
