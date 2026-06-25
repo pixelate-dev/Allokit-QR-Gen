@@ -1755,6 +1755,7 @@ main.is-exiting {
 }
 
 .preview-body {
+  container-type: size;
   position: relative;
   margin-bottom: 0.75rem;
   flex: 1;
@@ -1768,23 +1769,33 @@ main.is-exiting {
 }
 
 .preview-stage {
-  display: grid;
-  place-items: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   flex: 1;
   min-height: 0;
 }
 
 .preview-stage > .preview-shell,
 .preview-stage > .sticker-frame {
-  grid-area: 1 / 1;
+  flex-shrink: 0;
 }
 
-.preview-shell {
-  height: 100%;
-  width: auto;
-  max-height: 100%;
-  max-width: min(var(--preview-sticker-w), 88%);
+.preview-shell,
+.sticker-frame {
+  width: min(88cqw, calc(100cqh * 1000 / 1500));
+  max-width: 100%;
+  max-height: 100cqh;
+  height: auto;
   aspect-ratio: 1000 / 1500;
+}
+
+.sticker-frame {
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.12);
+  background: #fff;
+  line-height: 0;
 }
 
 .preview-shell-inner {
@@ -1886,25 +1897,11 @@ main.is-exiting {
   max-width: 168px;
 }
 
-.sticker-frame {
-  height: 100%;
-  width: auto;
-  max-height: 100%;
-  max-width: min(var(--preview-sticker-w), 88%);
-  aspect-ratio: 1000 / 1500;
-  border-radius: var(--radius-sm);
-  overflow: hidden;
-  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.12);
-  background: #fff;
-  line-height: 0;
-}
-
 .sticker-frame object,
 .sticker-frame svg {
   display: block;
   width: 100%;
   height: 100%;
-  object-fit: contain;
 }
 
 #sticker-result svg {
