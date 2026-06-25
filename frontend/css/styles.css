@@ -61,6 +61,7 @@ body {
     "sidebar main";
   min-height: 100vh;
   height: 100vh;
+  height: 100dvh;
 }
 
 /* ── Sidebar ───────────────────────────────────────────────────────── */
@@ -3368,8 +3369,10 @@ main:has(#page-print-guide) {
     grid-template-rows: minmax(0, 1.12fr) minmax(0, 0.88fr);
   }
 
+  /* Let the steps illustration fill the leftover panel height instead of
+     being capped small with large white gaps around it. */
   #page-generate .wf-step__img {
-    max-height: min(100%, 300px);
+    max-height: 100%;
   }
 
   .panel-left,
@@ -3389,6 +3392,7 @@ main:has(#page-print-guide) {
   /* Keep Generate fitting the viewport on tablet/mobile widths. */
   #app:has(#page-generate) {
     height: 100vh;
+    height: 100dvh;
     min-height: 0;
     overflow: hidden;
   }
