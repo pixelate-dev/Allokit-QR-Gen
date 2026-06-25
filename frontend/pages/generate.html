@@ -669,7 +669,7 @@
   let manualJobId = null;
   let manualJobName = '';
 
-  function notifyManualJob(jobId, status, { error = null } = {}) {
+  function notifyManualJob(jobId, status, { error = null, completedAt = null } = {}) {
     window.AllokitNotifications?.ingestJobUpdate({
       id: jobId,
       name: manualJobName,
@@ -677,6 +677,7 @@
       sticker_count: 1,
       type: 'single',
       error,
+      completed_at: completedAt,
     });
   }
 
@@ -743,7 +744,7 @@
 
     manualEventSource.onmessage = async (event) => {
       const data = JSON.parse(event.data);
-      notifyManualJob(jobId, data.status, { error: data.error });
+      notifyManualJob(jobId, data.status, { error: data.error, completedAt: data.completed_at });
 
       if (data.status === 'generating' || data.status === 'waiting') {
         setProgressBar(progressEl, data.progress, { active: true });

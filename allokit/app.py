@@ -263,6 +263,7 @@ async def job_progress(job_id: int):
                 "progress": job["progress"],
                 "status": job["status"],
                 "error": job.get("error"),
+                "completed_at": job.get("completed_at"),
             })
             yield f"data: {data}\n\n"
             if job["status"] in ("ready", "failed", "cancelled"):

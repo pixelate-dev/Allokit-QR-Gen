@@ -2,6 +2,8 @@
   const STATES_KEY = 'allokitJobStates';
   const NOTIFS_KEY = 'allokitNotifications';
   const BATCHES_KEY = 'allokitNotificationBatches';
+  // Bump the suffix to trigger another one-time purge of stale notifications.
+  const PURGE_KEY = 'allokitNotifPurge_v1';
   const FOCUS_JOB_KEY = 'notificationJobId';
   const FOCUS_JOBS_KEY = 'notificationJobIds';
   const TRANSITION_KEY = 'pageTransition';
@@ -58,6 +60,12 @@
 
   function isTerminalStatus(status) {
     return status === 'ready' || status === 'failed' || status === 'cancelled';
+  }
+
+  // Server-authoritative finish time, so every client shows the same "X ago".
+  // Falls back to created_at for jobs that finished before completed_at existed.
+  function jobCompletionTime(job) {
+    return job?.completed_at || job?.created_at || new Date().toISOString();
   }
 
   function registerUploadBatch(batchId, expectedCount) {
@@ -155,6 +163,16 @@
     const first = outcomes[String(sorted[0])] || {};
     const groupedMessage = formatGroupedStatusMessage(kind, sorted);
 
+    // Use the latest server finish time in the group (ISO strings sort
+    // chronologically) so the batch shows when it actually completed.
+    const completedTimes = sorted
+      .map((id) => outcomes[String(id)]?.completedAt)
+      .filter(Boolean)
+      .sort();
+    const timestamp = completedTimes.length
+      ? completedTimes[completedTimes.length - 1]
+      : new Date().toISOString();
+
     let message;
     let title;
 
@@ -180,7 +198,7 @@
       type: 'batch',
       grouped: !isSingle,
       read: false,
-      timestamp: new Date().toISOString(),
+      timestamp,
       jobName: title,
       title,
       message,
@@ -220,6 +238,7 @@
         status: live.status,
         name: live.name,
         error: live.error,
+        completedAt: jobCompletionTime(live),
       };
     });
 
@@ -280,7 +299,7 @@
       kind,
       type: job.type,
       read: false,
-      timestamp: new Date().toISOString(),
+      timestamp: jobCompletionTime(job),
       jobName: name,
       title: name,
       message: `${jobRef} · ${statusLine}`,
@@ -327,6 +346,7 @@
       status: job.status,
       name: job.name,
       error: job.error,
+      completedAt: jobCompletionTime(job),
     };
     batch.notified = batch.notified || false;
     saveBatchState(state);
@@ -845,8 +865,21 @@
     pollTimer = window.setInterval(pollJobs, POLL_MS);
   }
 
+  // One-time cleanup: clears notifications created before completion times
+  // became server-authoritative (their relative "X ago" was client-clock based
+  // and inconsistent across users). Runs once per browser; keeps job states so
+  // finished jobs are not re-notified.
+  function purgeStaleNotificationsOnce() {
+    try {
+      if (localStorage.getItem(PURGE_KEY)) return;
+      localStorage.removeItem(NOTIFS_KEY);
+      localStorage.setItem(PURGE_KEY, '1');
+    } catch (_) {}
+  }
+
   function init() {
     buildUi();
+    purgeStaleNotificationsOnce();
     const all = loadNotifications();
     const existing = all.filter((item) => isTerminalNotificationKind(item.kind));
     if (existing.length !== all.length || existing.length > MAX_NOTIFS) {

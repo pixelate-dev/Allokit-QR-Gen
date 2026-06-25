@@ -6,6 +6,9 @@ from allokit.config import DB_PATH
 
 _lock = threading.Lock()
 
+# Statuses that represent a finished job; reaching any of these stamps completed_at.
+_TERMINAL_STATUSES = ("ready", "failed", "cancelled")
+
 
 def _conn():
     c = sqlite3.connect(str(DB_PATH), check_same_thread=False)
@@ -28,13 +31,18 @@ def init():
                 pdf_path      TEXT,
                 error         TEXT,
                 created_at    TEXT    NOT NULL,
+                completed_at  TEXT,
                 client_token  TEXT
             )
         """)
-        # Migrate older databases that predate the client_token column.
+        # Migrate older databases that predate newer columns.
         columns = {r["name"] for r in c.execute("PRAGMA table_info(jobs)").fetchall()}
         if "client_token" not in columns:
             c.execute("ALTER TABLE jobs ADD COLUMN client_token TEXT")
+        # completed_at records server-side finish time; NULL for jobs that
+        # finished before this column existed (their true time is unknown).
+        if "completed_at" not in columns:
+            c.execute("ALTER TABLE jobs ADD COLUMN completed_at TEXT")
         # Dedup guard for idempotent uploads (SQLite treats NULLs as distinct,
         # so jobs without a token are unaffected).
         c.execute(
@@ -80,6 +88,10 @@ def list_jobs():
 def update_job(job_id, **kwargs):
     if not kwargs:
         return
+    # Stamp completion time when a job first reaches a terminal status, so every
+    # client computes "X ago" from the same server timestamp.
+    if kwargs.get("status") in _TERMINAL_STATUSES and "completed_at" not in kwargs:
+        kwargs["completed_at"] = datetime.now(timezone.utc).isoformat()
     cols = ", ".join(f"{k} = ?" for k in kwargs)
     vals = list(kwargs.values()) + [job_id]
     with _lock, _conn() as c:
@@ -88,33 +100,36 @@ def update_job(job_id, **kwargs):
 
 def cancel_if_active(job_id: int) -> bool:
     """Atomically cancel a job that is still waiting or generating."""
+    completed_at = datetime.now(timezone.utc).isoformat()
     with _lock, _conn() as c:
         cur = c.execute(
-            "UPDATE jobs SET status = 'cancelled', progress = 0, pdf_path = NULL, error = NULL "
+            "UPDATE jobs SET status = 'cancelled', progress = 0, pdf_path = NULL, error = NULL, completed_at = ? "
             "WHERE id = ? AND status IN ('waiting', 'generating')",
-            (job_id,),
+            (completed_at, job_id),
         )
         return cur.rowcount > 0
 
 
 def mark_ready_if_generating(job_id: int, pdf_path: str) -> bool:
     """Atomically mark ready only while the job is still generating."""
+    completed_at = datetime.now(timezone.utc).isoformat()
     with _lock, _conn() as c:
         cur = c.execute(
-            "UPDATE jobs SET status = 'ready', progress = 100, pdf_path = ? "
+            "UPDATE jobs SET status = 'ready', progress = 100, pdf_path = ?, completed_at = ? "
             "WHERE id = ? AND status = 'generating'",
-            (pdf_path, job_id),
+            (pdf_path, completed_at, job_id),
         )
         return cur.rowcount > 0
 
 
 def force_cancel(job_id: int) -> bool:
     """Cancel a job that has reached ready while cancel-all is active."""
+    completed_at = datetime.now(timezone.utc).isoformat()
     with _lock, _conn() as c:
         cur = c.execute(
-            "UPDATE jobs SET status = 'cancelled', progress = 0, pdf_path = NULL, error = NULL "
+            "UPDATE jobs SET status = 'cancelled', progress = 0, pdf_path = NULL, error = NULL, completed_at = ? "
             "WHERE id = ? AND status IN ('waiting', 'generating', 'ready')",
-            (job_id,),
+            (completed_at, job_id),
         )
         return cur.rowcount > 0
 
