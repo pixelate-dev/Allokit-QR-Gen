@@ -1264,7 +1264,13 @@ main.is-exiting {
 }
 
 /* Generate button stacks above the steps image for correct shadow layering. */
+#form-manual .form-card-head,
+#form-manual .form-fields {
+  flex-shrink: 0;
+}
+
 #form-manual .form-actions {
+  flex-shrink: 0;
   position: relative;
   z-index: 2;
 }
@@ -1428,23 +1434,115 @@ main.is-exiting {
 }
 
 #form-manual .workflow-steps {
+  --wf-arrow: rgba(25, 113, 242, 0.55);
+  container-type: inline-size;
   flex: 1;
   display: flex;
-  align-items: flex-start;
+  align-items: stretch;
   justify-content: center;
   min-height: 0;
   margin-top: 0;
   padding: 0 0.25rem;
+  overflow: hidden;
   position: relative;
   z-index: 1;
 }
 
-#form-manual .workflow-steps img {
-  width: 98%;
-  max-width: 98%;
+/* Text scales with the container width (cqw); the illustration area flexes
+   to fill whatever height is left, so captions are never clipped and the
+   images shrink/grow to fit the available space. */
+.wf-list {
+  --wf-gap: clamp(1rem, 7cqw, 4.5rem);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  min-height: 0;
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  gap: var(--wf-gap);
+}
+
+.wf-step {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: clamp(0.05rem, 0.3cqw, 0.2rem);
+}
+
+.wf-step__imgwrap {
+  position: relative;
+  flex: 1 1 0;
+  min-height: 0;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.wf-step__img {
+  max-width: 100%;
+  max-height: min(100%, 170px);
+  width: auto;
   height: auto;
   object-fit: contain;
   display: block;
+}
+
+/* Arrow image connector between consecutive steps, centered in the gap
+   and on the illustration. */
+.wf-step__arrow {
+  position: absolute;
+  top: 50%;
+  left: calc(100% + var(--wf-gap) / 2);
+  width: clamp(2.75rem, 10cqw, 7rem);
+  height: auto;
+  object-fit: contain;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 5;
+}
+
+/* Nudge the last connector (before step 4) slightly left. */
+.wf-step:nth-child(3) .wf-step__arrow {
+  left: calc(100% + var(--wf-gap) / 2 - clamp(0.25rem, 1.5cqw, 1rem));
+}
+
+.wf-step__head {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(0.3rem, 0.9cqw, 0.6rem);
+  min-width: 0;
+}
+
+.wf-step__num {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: clamp(1rem, 2.6cqw, 1.5rem);
+  height: clamp(1rem, 2.6cqw, 1.5rem);
+  border-radius: 50%;
+  border: clamp(1.25px, 0.2cqw, 2px) solid var(--blue);
+  color: var(--blue);
+  font-size: clamp(0.6rem, 1.3cqw, 0.85rem);
+  font-weight: 700;
+  line-height: 1;
+}
+
+.wf-step__title {
+  font-size: clamp(0.75rem, 1.9cqw, 1.1rem);
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.01em;
+  white-space: nowrap;
 }
 
 /* Buttons */
@@ -1682,8 +1780,10 @@ main.is-exiting {
 }
 
 .preview-shell {
-  width: var(--preview-sticker-w);
-  max-width: 88%;
+  height: 100%;
+  width: auto;
+  max-height: 100%;
+  max-width: min(var(--preview-sticker-w), 88%);
   aspect-ratio: 1000 / 1500;
 }
 
@@ -1787,8 +1887,10 @@ main.is-exiting {
 }
 
 .sticker-frame {
-  width: var(--preview-sticker-w);
-  max-width: 88%;
+  height: 100%;
+  width: auto;
+  max-height: 100%;
+  max-width: min(var(--preview-sticker-w), 88%);
   aspect-ratio: 1000 / 1500;
   border-radius: var(--radius-sm);
   overflow: hidden;
