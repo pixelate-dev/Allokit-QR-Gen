@@ -3479,9 +3479,10 @@ main:has(#page-print-guide)::-webkit-scrollbar {
 }
 
 /* The workflow-steps illustration only renders well when the panel has
-   enough room. On cramped layouts (stacked tablets, short/landscape windows)
-   we hide it and just show the Manual Generation form cleanly. */
-@media (max-width: 1200px), (max-height: 760px) {
+   enough room. On cramped layouts (stacked tablets, iPad landscape, short/
+   landscape windows) we hide it and just show the Manual Generation form
+   cleanly. The 1366px ceiling covers iPad landscape (incl. 12.9"). */
+@media (max-width: 1366px), (max-height: 760px) {
   #form-manual .workflow-steps {
     display: none;
   }
@@ -3504,7 +3505,7 @@ main:has(#page-print-guide)::-webkit-scrollbar {
 
 /* Roomier compact layouts still have slack below the tip — show a Print
    Guide link to use that space (e.g. iPad landscape, short wide windows). */
-@media (min-height: 700px) and ((max-width: 1200px) or (max-height: 760px)) {
+@media (min-height: 700px) and ((max-width: 1366px) or (max-height: 760px)) {
   #form-manual .guide-link-card {
     display: flex;
   }
