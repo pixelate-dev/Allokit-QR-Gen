@@ -95,6 +95,13 @@ def _check_cancelled(job_id: int):
         raise JobCancelled()
 
 
+def _artifact_ready(path) -> bool:
+    try:
+        return path.is_file() and path.stat().st_size > 0
+    except OSError:
+        return False
+
+
 def _cleanup_job_files(job_id: int):
     """Remove generated artifacts for a job; keep input.csv for batch uploads."""
     job_dir = JOBS_DIR / str(job_id)
@@ -105,6 +112,28 @@ def _cleanup_job_files(job_id: int):
     stickers = job_dir / "stickers"
     if stickers.is_dir():
         shutil.rmtree(stickers, ignore_errors=True)
+
+
+def _cleanup_success_intermediates(job_id: int, job_type: str) -> None:
+    """Remove intermediate files once final deliverables exist. Best-effort."""
+    job_dir = JOBS_DIR / str(job_id)
+    if not job_dir.is_dir():
+        return
+
+    pdf_path = job_dir / "output.pdf"
+    if not _artifact_ready(pdf_path):
+        return
+
+    if job_type == "batch":
+        stickers = job_dir / "stickers"
+        if stickers.is_dir():
+            shutil.rmtree(stickers, ignore_errors=True)
+        return
+
+    if job_type == "single":
+        if not _artifact_ready(job_dir / "output.svg"):
+            return
+        (job_dir / "qr_output.svg").unlink(missing_ok=True)
 
 
 def cancel(job_id: int) -> bool:
@@ -210,6 +239,7 @@ def _process_single(job_id: int, job: dict):
     svg_to_pdf(composed, str(pdf_path))
     _check_cancelled(job_id)
 
+    _cleanup_success_intermediates(job_id, "single")
     db.update_job(job_id, status="ready", progress=100, pdf_path=str(pdf_path))
 
 
@@ -309,6 +339,7 @@ def _process_batch(job_id: int, job: dict):
         tmp_svg_path.unlink(missing_ok=True)
         c.save()
         _check_cancelled(job_id)
+        _cleanup_success_intermediates(job_id, "batch")
         db.update_job(job_id, status="ready", progress=100, pdf_path=str(pdf_path))
     except JobCancelled:
         tmp_svg_path.unlink(missing_ok=True)
