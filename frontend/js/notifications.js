@@ -419,9 +419,14 @@
     }, REVEAL_DISMISS_MS);
   }
 
+  function isRevealOpen() {
+    const reveal = document.getElementById('notifications-reveal');
+    return !!reveal?.classList.contains('is-open');
+  }
+
   function hideReveal() {
     const reveal = document.getElementById('notifications-reveal');
-    if (!reveal) return;
+    if (!reveal || !isRevealOpen()) return;
     cancelRevealDismiss();
     reveal.classList.remove('is-open');
     reveal.setAttribute('aria-hidden', 'true');
@@ -794,13 +799,17 @@
         e.stopPropagation();
         setPanelOpen(!panelOpen);
       });
-
-      document.addEventListener('click', (e) => {
-        if (!panelOpen) return;
-        if (e.target.closest('.notifications-wrap')) return;
-        setPanelOpen(false);
-      });
     }
+
+    document.addEventListener('click', () => {
+      if (isRevealOpen()) hideReveal();
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!panelOpen) return;
+      if (e.target.closest('.notifications-wrap')) return;
+      setPanelOpen(false);
+    });
 
     btn.addEventListener('focus', () => {
       cancelPanelClose();
@@ -845,7 +854,14 @@
       `);
 
       const errorModal = document.getElementById('notifications-error-modal');
-      errorModal?.querySelector('.notifications-error-backdrop')?.addEventListener('click', closeErrorDetailModal);
+      errorModal?.addEventListener('click', (e) => {
+        if (
+          e.target === errorModal ||
+          e.target.classList.contains('notifications-error-backdrop')
+        ) {
+          closeErrorDetailModal();
+        }
+      });
       errorModal?.querySelector('.notifications-error-close')?.addEventListener('click', closeErrorDetailModal);
     }
 
@@ -853,6 +869,10 @@
       if (e.key !== 'Escape') return;
       if (errorModalOpen) {
         closeErrorDetailModal();
+        return;
+      }
+      if (isRevealOpen()) {
+        hideReveal();
         return;
       }
       if (panelOpen) setPanelOpen(false);
