@@ -61,7 +61,6 @@ body {
     "sidebar main";
   min-height: 100vh;
   height: 100vh;
-  height: 100dvh;
 }
 
 /* ── Sidebar ───────────────────────────────────────────────────────── */
@@ -752,7 +751,6 @@ main.is-exiting {
   flex-direction: column;
   flex: 1;
   min-height: 0;
-  overflow: hidden;
 }
 
 .page-header {
@@ -3452,37 +3450,16 @@ main:has(#page-print-guide)::-webkit-scrollbar {
 }
 
 /* ── Responsive ────────────────────────────────────────────────────── */
-@media (min-width: 769px) {
-  main:has(#page-generate) {
-    overflow: hidden;
-  }
-}
-
 @media (max-width: 1200px) {
   .stats { grid-template-columns: repeat(2, 1fr); }
-
-  #page-generate .stats {
-    margin-bottom: 0.875rem;
-  }
-
-  #page-generate .stat-card {
-    min-height: 100px;
-  }
-
-  #page-generate .panels {
-    grid-template-columns: 1fr;
-    grid-template-rows: minmax(0, 1.12fr) minmax(0, 0.88fr);
-  }
-
+  .panels { grid-template-columns: 1fr; }
   .panel-left,
   .panel-right { grid-column: auto; }
 }
 
-/* The workflow-steps illustration only renders well when the panel has
-   enough room. On cramped layouts (stacked tablets, iPad landscape, short/
-   landscape windows) we hide it and just show the Manual Generation form
-   cleanly. The 1366px ceiling covers iPad landscape (incl. 12.9"). */
-@media (max-width: 1366px), (max-height: 760px) {
+/* The workflow-steps illustration needs vertical room. When the viewport is
+   too short we hide it and surface the Tip instead. */
+@media (max-height: 760px) {
   #form-manual .workflow-steps {
     display: none;
   }
@@ -3503,11 +3480,20 @@ main:has(#page-print-guide)::-webkit-scrollbar {
   }
 }
 
-/* Roomier compact layouts still have slack below the tip — show a Print
-   Guide link to use that space (e.g. iPad landscape, short wide windows). */
-@media (min-height: 700px) and ((max-width: 1366px) or (max-height: 760px)) {
+/* When the illustration is hidden but there's still a little slack below the
+   Tip, also show the Print Guide link. Below 700px there's only room for the
+   Tip, so the link stays hidden. */
+@media (min-height: 700px) and (max-height: 760px) {
   #form-manual .guide-link-card {
     display: flex;
+  }
+}
+
+/* Tip-only layout (no illustration, no Print Guide): give the Tip extra space
+   above the Generate button so it doesn't look stuck to it. */
+@media (max-height: 699.98px) {
+  #form-manual .form-tip--compact {
+    margin-bottom: 0.875rem;
   }
 }
 
@@ -3521,31 +3507,9 @@ main:has(#page-print-guide)::-webkit-scrollbar {
     min-height: 100vh;
   }
 
-  /* Keep Generate fitting the viewport on tablet/mobile widths. */
-  #app:has(#page-generate) {
-    height: 100vh;
-    height: 100dvh;
-    min-height: 0;
-    overflow: hidden;
-  }
-
-  main:has(#page-generate) {
-    overflow: hidden;
-  }
-
   #sidebar { display: none; }
   main { padding: 1rem; }
   .stats { grid-template-columns: 1fr; }
-  #page-generate .stats {
-    grid-template-columns: repeat(2, 1fr);
-    margin-bottom: 0.875rem;
-  }
-
-  #page-generate .stat-card {
-    min-height: 96px;
-    padding: 0.8125rem 1rem 0.75rem;
-  }
-
   .page-header { flex-direction: column; align-items: stretch; }
   .mode-toggle { width: 100%; }
   .mode-toggle button { flex: 1; min-width: 0; padding: 0.75rem 1rem; }
