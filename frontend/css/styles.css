@@ -3490,7 +3490,7 @@ main:has(#page-print-guide)::-webkit-scrollbar {
 }
 
 /* Tip-only layout (no illustration, no Print Guide): give the Tip extra space
-   above the Generate button so it doesn't look stuck to it. */
+   below it so it doesn't look stuck to the Generate button. */
 @media (max-height: 699.98px) {
   #form-manual .form-tip--compact {
     margin-bottom: 0.875rem;
