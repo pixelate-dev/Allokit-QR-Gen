@@ -3154,6 +3154,11 @@ main:has(#page-print-guide)::-webkit-scrollbar {
   white-space: nowrap;
 }
 
+.guide-spec-row dd.guide-spec-dd--wrap {
+  white-space: normal;
+  line-height: 1.45;
+}
+
 .guide-spec-icon {
   width: 36px;
   height: 36px;

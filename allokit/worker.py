@@ -24,8 +24,8 @@ _queue = queue.Queue()
 
 # QR placement on the template — pixel coordinates, matches the Illustrator
 # artboard 1:1 (template.svg's viewBox is already in CSS-pixel units).
-QR_X, QR_Y              = 3.6, 3.6
-QR_WIDTH, QR_HEIGHT     = 64.8, 64.8
+QR_X, QR_Y              = 12.7008, 12.7008
+QR_WIDTH, QR_HEIGHT     = 64.5912, 64.5912
 MODULE_SIZE, QUIET_ZONE = 20, 2
 
 # Maximum rows per CSV batch upload.
