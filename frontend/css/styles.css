@@ -1896,11 +1896,17 @@ main.is-exiting {
 }
 
 .sticker-frame {
+  position: relative;
   border-radius: var(--radius-sm);
   overflow: hidden;
   box-shadow: 0 8px 20px rgba(15, 23, 42, 0.12);
   background: #fff;
   line-height: 0;
+  /* Export is 1.25" × 1.75" (bleed); preview frame shows trim 1" × 1.5". */
+  --sticker-export-w: 1.25;
+  --sticker-export-h: 1.75;
+  --sticker-trim-w: 1;
+  --sticker-trim-h: 1.5;
 }
 
 .preview-shell-inner {
@@ -2003,9 +2009,13 @@ main.is-exiting {
 
 .sticker-frame object,
 .sticker-frame svg {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: calc(100% * var(--sticker-export-w) / var(--sticker-trim-w));
+  height: calc(100% * var(--sticker-export-h) / var(--sticker-trim-h));
+  transform: translate(-50%, -50%);
   display: block;
-  width: 100%;
-  height: 100%;
 }
 
 #sticker-result svg {
