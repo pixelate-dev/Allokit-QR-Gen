@@ -2,8 +2,6 @@
   const STATES_KEY = 'allokitJobStates';
   const NOTIFS_KEY = 'allokitNotifications';
   const BATCHES_KEY = 'allokitNotificationBatches';
-  // Bump the suffix to trigger another one-time purge of stale notifications.
-  const PURGE_KEY = 'allokitNotifPurge_v1';
   const FOCUS_JOB_KEY = 'notificationJobId';
   const FOCUS_JOBS_KEY = 'notificationJobIds';
   const TRANSITION_KEY = 'pageTransition';
@@ -38,8 +36,18 @@
     return loadJson(NOTIFS_KEY, []);
   }
 
+  // Newest first. ISO timestamps sort lexicographically = chronologically.
+  function sortRecentFirst(items) {
+    return [...items].sort((a, b) => {
+      const ta = a?.timestamp || '';
+      const tb = b?.timestamp || '';
+      if (ta === tb) return 0;
+      return ta < tb ? 1 : -1;
+    });
+  }
+
   function saveNotifications(items) {
-    saveJson(NOTIFS_KEY, items.slice(0, MAX_NOTIFS));
+    saveJson(NOTIFS_KEY, sortRecentFirst(items).slice(0, MAX_NOTIFS));
   }
 
   function loadJobStates() {
@@ -567,6 +575,35 @@
     renderUi();
   }
 
+  function clearAllNotifications() {
+    const listEl = document.getElementById('notifications-list');
+    const hasItems = listEl
+      ? listEl.querySelector('.notifications-item')
+      : null;
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    hideReveal();
+
+    if (!listEl || !hasItems || reduceMotion) {
+      saveNotifications([]);
+      renderUi();
+      return;
+    }
+
+    if (listEl.dataset.clearing === '1') return;
+    listEl.dataset.clearing = '1';
+
+    // Simple fade out, swap to empty, fade back in. No layout animation.
+    listEl.classList.add('is-clearing');
+
+    window.setTimeout(() => {
+      saveNotifications([]);
+      renderUi();
+      listEl.classList.remove('is-clearing');
+      delete listEl.dataset.clearing;
+    }, 200);
+  }
+
   function markRead(id) {
     const items = loadNotifications().map((item) =>
       item.id === id ? { ...item, read: true } : item
@@ -638,10 +675,21 @@
   function renderUi() {
     const btn = document.getElementById('notifications-btn');
     const listEl = document.getElementById('notifications-list');
+    const markReadBtn = document.getElementById('notifications-mark-read');
+    const clearAllBtn = document.getElementById('notifications-clear-all');
     if (!btn || !listEl) return;
 
+    const items = loadNotifications().filter((item) => isTerminalNotificationKind(item.kind));
     const unread = renderList(listEl);
     updateBadge(btn, unread);
+
+    const hasItems = items.length > 0;
+    if (markReadBtn) {
+      markReadBtn.hidden = !hasItems || unread === 0;
+    }
+    if (clearAllBtn) {
+      clearAllBtn.hidden = !hasItems;
+    }
   }
 
   function setPanelOpen(open) {
@@ -746,7 +794,10 @@
         <div class="notifications-panel" id="notifications-panel" role="region" aria-label="Notifications" aria-hidden="true">
           <div class="notifications-panel-header">
             <h2>Notifications</h2>
-            <button type="button" class="notifications-mark-read" id="notifications-mark-read">Mark all read</button>
+            <div class="notifications-panel-actions">
+              <button type="button" class="notifications-panel-action" id="notifications-mark-read" hidden>Mark all read</button>
+              <button type="button" class="notifications-panel-action" id="notifications-clear-all" hidden>Clear all</button>
+            </div>
           </div>
           <div class="notifications-list" id="notifications-list"></div>
         </div>
@@ -760,6 +811,7 @@
     const btn = document.getElementById('notifications-btn');
     const panel = document.getElementById('notifications-panel');
     const markReadBtn = document.getElementById('notifications-mark-read');
+    const clearAllBtn = document.getElementById('notifications-clear-all');
     const listEl = document.getElementById('notifications-list');
     const reveal = document.getElementById('notifications-reveal');
     const revealList = document.getElementById('notifications-reveal-list');
@@ -826,6 +878,11 @@
       markAllRead();
     });
 
+    clearAllBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      clearAllNotifications();
+    });
+
     listEl.addEventListener('click', (e) => {
       const item = e.target.closest('.notifications-item');
       if (!item) return;
@@ -885,26 +942,13 @@
     pollTimer = window.setInterval(pollJobs, POLL_MS);
   }
 
-  // One-time cleanup: clears notifications created before completion times
-  // became server-authoritative (their relative "X ago" was client-clock based
-  // and inconsistent across users). Runs once per browser; keeps job states so
-  // finished jobs are not re-notified.
-  function purgeStaleNotificationsOnce() {
-    try {
-      if (localStorage.getItem(PURGE_KEY)) return;
-      localStorage.removeItem(NOTIFS_KEY);
-      localStorage.setItem(PURGE_KEY, '1');
-    } catch (_) {}
-  }
-
   function init() {
     buildUi();
-    purgeStaleNotificationsOnce();
     const all = loadNotifications();
     const existing = all.filter((item) => isTerminalNotificationKind(item.kind));
-    if (existing.length !== all.length || existing.length > MAX_NOTIFS) {
-      saveNotifications(existing);
-    }
+    // Always normalize on load: filters non-terminal kinds, sorts recent-first,
+    // and caps the list. Fixes stale data saved in the wrong order by old code.
+    saveNotifications(existing);
     renderUi();
     window.setInterval(renderUi, 60000);
     // Generate and History pages refresh jobs locally; poll elsewhere.

@@ -35,14 +35,6 @@ def init():
                 client_token  TEXT
             )
         """)
-        # Migrate older databases that predate newer columns.
-        columns = {r["name"] for r in c.execute("PRAGMA table_info(jobs)").fetchall()}
-        if "client_token" not in columns:
-            c.execute("ALTER TABLE jobs ADD COLUMN client_token TEXT")
-        # completed_at records server-side finish time; NULL for jobs that
-        # finished before this column existed (their true time is unknown).
-        if "completed_at" not in columns:
-            c.execute("ALTER TABLE jobs ADD COLUMN completed_at TEXT")
         # Dedup guard for idempotent uploads (SQLite treats NULLs as distinct,
         # so jobs without a token are unaffected).
         c.execute(
