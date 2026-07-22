@@ -1,5 +1,17 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 90 126">
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:ak="https://allokit.dev/colors/1" viewBox="0 0 90 126">
+  <metadata>
+    <ak:palette>
+      <ak:swatch id="brand-blue" type="spot" pantone="300 C" book="Solid Coated" preview="#1971f2" cmyk="100,49,0,28"/>
+      <ak:swatch id="paper-white" type="knockout" preview="#ffffff" cmyk="0,0,0,0"/>
+      <ak:swatch id="qr-black" type="process" preview="#000000" cmyk="0,0,0,100"/>
+    </ak:palette>
+    <ak:bindings>
+      <ak:bind class="cls-1" swatch="brand-blue"/>
+      <ak:bind class="cls-2" swatch="paper-white"/>
+      <ak:bind class="cls-3" swatch="paper-white" property="stroke"/>
+    </ak:bindings>
+  </metadata>
   <defs>
     <style>
       .cls-1 {

@@ -321,8 +321,6 @@
               </div>
             </label>
 
-            <p id="batch-multi-note" class="batch-multi-note" hidden>Each file is queued as its own job, named after its filename.</p>
-
             <div class="form-actions">
               <button type="submit" id="batch-submit" disabled>Start batch job</button>
             </div>
@@ -411,7 +409,7 @@
 <script src="../js/job-id-format.js"></script>
 <script src="../js/search.js"></script>
 <script src="../js/progress.js"></script>
-<script src="../js/notifications.js?v=2"></script>
+<script src="../js/notifications.js?v=3"></script>
 <script src="../js/csv-upload-queue.js"></script>
 <script>
   // ===================================================================
@@ -864,7 +862,6 @@
   const fileInput      = document.getElementById('batch-file');
   const batchNameInput = document.getElementById('batch-name');
   const batchNameField = document.getElementById('batch-name-field');
-  const batchMultiNote = document.getElementById('batch-multi-note');
   const batchFileList  = document.getElementById('batch-file-list');
   const batchSubmitBtn = document.getElementById('batch-submit');
   const browseBtn      = document.getElementById('browse-btn');
@@ -921,7 +918,6 @@
     // Multiple files use their own filename; hide the shared name field.
     batchNameField.hidden = multi;
     batchNameInput.disabled = multi;
-    batchMultiNote.hidden = !multi;
     if (!multi && count === 1) {
       batchNameInput.value = selectedFiles[0].name.replace(/\.csv$/i, '');
     }

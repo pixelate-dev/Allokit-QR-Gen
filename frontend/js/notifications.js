@@ -6,7 +6,7 @@
   const FOCUS_JOBS_KEY = 'notificationJobIds';
   const TRANSITION_KEY = 'pageTransition';
   const MAX_NOTIFS = 20;
-  const POLL_MS = 15000;
+  const POLL_MS = 5000;
   const PAGE_ANIM_MS = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 180;
 
   const apiBase = typeof API_BASE !== 'undefined' ? API_BASE : 'http://localhost:8000';
@@ -155,13 +155,69 @@
     return `${countLabel} ${verb}`;
   }
 
-  function batchIsFullyTerminal(batch) {
+  function batchIsFullyTerminal(batch, allJobs) {
     if (batch.jobIds.length === 0) return false;
     if (batch.jobIds.length < batch.expectedCount) return false;
+    const jobsById = new Map((allJobs || []).map((job) => [job.id, job]));
     return batch.jobIds.every((jobId) => {
       const outcome = batch.outcomes[String(jobId)];
-      return outcome && isTerminalStatus(outcome.status);
+      if (outcome && isTerminalStatus(outcome.status)) return true;
+      const live = jobsById.get(jobId);
+      return !!(live && isTerminalStatus(live.status));
     });
+  }
+
+  function syncBatchOutcome(batch, job) {
+    if (!batch || !job || !isTerminalStatus(job.status)) return;
+    batch.outcomes[String(job.id)] = {
+      status: job.status,
+      name: job.name,
+      error: job.error,
+      completedAt: jobCompletionTime(job),
+    };
+  }
+
+  /** Emit toasts for upload-batches that finished while we weren't watching transitions. */
+  function finalizeReadyBatches(allJobs) {
+    const state = loadBatchState();
+    const jobsById = new Map((allJobs || []).map((job) => [job.id, job]));
+    const newItems = [];
+    const finishedIds = [];
+
+    Object.entries(state.batches).forEach(([batchId, batch]) => {
+      if (!batch || batch.notified) return;
+
+      batch.jobIds.forEach((jobId) => {
+        const live = jobsById.get(jobId);
+        if (live) syncBatchOutcome(batch, live);
+      });
+
+      if (!batchIsFullyTerminal(batch, allJobs)) return;
+
+      batch.notified = true;
+      finishedIds.push(batchId);
+
+      if (batch.jobIds.length <= 1) {
+        const job = jobsById.get(batch.jobIds[0]);
+        if (job && isTerminalStatus(job.status)) {
+          newItems.push(buildNotification(job, job.status));
+        }
+      } else {
+        newItems.push(...buildBatchNotifications(batch, allJobs));
+      }
+    });
+
+    finishedIds.forEach((batchId) => {
+      const batch = state.batches[batchId];
+      if (!batch) return;
+      batch.jobIds.forEach((jobId) => {
+        delete state.jobToBatch[String(jobId)];
+      });
+      delete state.batches[batchId];
+    });
+
+    if (finishedIds.length) saveBatchState(state);
+    return newItems;
   }
 
   function buildGroupedNotification(kind, jobIds, outcomes) {
@@ -350,16 +406,11 @@
       return items;
     }
 
-    batch.outcomes[String(job.id)] = {
-      status: job.status,
-      name: job.name,
-      error: job.error,
-      completedAt: jobCompletionTime(job),
-    };
+    syncBatchOutcome(batch, job);
     batch.notified = batch.notified || false;
     saveBatchState(state);
 
-    if (!batchIsFullyTerminal(batch)) {
+    if (!batchIsFullyTerminal(batch, allJobs)) {
       return items;
     }
 
@@ -488,6 +539,9 @@
       return;
     }
 
+    // Catch batches that finished while this page wasn't watching status transitions
+    // (common when leaving Generate for Print Guide mid-job).
+    newItems.push(...finalizeReadyBatches(jobs));
     appendNotifications(newItems);
   }
 
@@ -502,12 +556,15 @@
     const id = String(job.id);
     const newItems = collectTransitionNotifications(prevStates[id], job, [job]);
     saveJobStates({ ...prevStates, [id]: job.status });
+    newItems.push(...finalizeReadyBatches([job]));
     appendNotifications(newItems);
   }
 
   async function pollJobs() {
     try {
-      const res = await fetch(`${apiBase}/jobs`);
+      const res = window.allokitFetch
+        ? await window.allokitFetch('/jobs')
+        : await fetch(`${apiBase}/jobs`);
       if (!res.ok) return;
       ingestJobs(await res.json());
     } catch (_) {}
@@ -940,6 +997,9 @@
     if (pollTimer) return;
     pollJobs();
     pollTimer = window.setInterval(pollJobs, POLL_MS);
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') pollJobs();
+    });
   }
 
   function init() {

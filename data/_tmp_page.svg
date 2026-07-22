@@ -1,8 +1,9 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" xmlns:ak="https://allokit.dev/colors/1" viewBox="0 0 1000 1000">
-  <metadata>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:ak="https://allokit.dev/colors/1" viewBox="0 0 90 126">
+  <g transform="translate(12.7008,12.7008) scale(0.071768,0.071768)">
+    <g transform="translate(320.00,320.00) scale(0.260000,0.260000)">
+<metadata>
     <ak:palette>
-      <ak:swatch id="brand-blue" type="spot" pantone="300 C" book="Solid Coated" preview="#1971f2" cmyk="100,49,0,28"/>
+      <ak:swatch id="brand-blue" type="spot" pantone="2727 C" book="Solid Coated" preview="#1971f2" cmyk="81,44,0,11"/>
       <ak:swatch id="paper-white" type="knockout" preview="#ffffff" cmyk="0,0,0,0"/>
     </ak:palette>
     <ak:bindings>
@@ -30,5 +31,7 @@
         <path class="cls-2" d="M778.68,264.39v526.03h-168.44v-146.03c-6.45,6.01-13.06,11.86-19.87,17.56-50.59,42.38-109.77,75.05-175.92,97.13-62.26,20.79-127.98,31.33-195.3,31.33v-168.44c188.62,0,378.93-110.57,378.93-357.59h180.59Z"/>
       </g>
     </g>
+  </g>
+  </g>
   </g>
 </svg>

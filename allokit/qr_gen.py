@@ -1,16 +1,16 @@
 import re
 
 import segno
-from reportlab.lib.colors import HexColor
 
+from allokit.colors import get_qr_print_colors
 from allokit.config import LOGO_PATH
 
 # Minimum matrix version for the 13×13 centre logo (level-H recovery).
 MIN_QR_VERSION = 6
 
-# Fill colors match the SVG output.
-_QR_DARK = HexColor("#111111")
-_QR_LIGHT = HexColor("#ffffff")
+# Preview-only SVG fills (RGB). PDF export uses CMYK via get_qr_print_colors().
+_PREVIEW_QR_DARK = "#000000"
+_PREVIEW_QR_LIGHT = "#ffffff"
 
 
 def _make_qr(data: str):
@@ -95,7 +95,7 @@ def build_qr_svg(matrix, module_size=20, quiet_zone=4, logo_path=None):
         f'<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" '
         f'width="{total}" height="{total}" viewBox="0 0 {total} {total}">'
     )
-    out.append(f'  <rect width="{total}" height="{total}" fill="white"/>')
+    out.append(f'  <rect width="{total}" height="{total}" fill="{_PREVIEW_QR_LIGHT}"/>')
 
     # ── Per-corner rounded rect path helper ───────────────────────────────
     def rounded_rect(x, y, w, h, r_tl=0, r_tr=0, r_br=0, r_bl=0):
@@ -146,7 +146,7 @@ def build_qr_svg(matrix, module_size=20, quiet_zone=4, logo_path=None):
                     r_br=cr if not b and not r else 0,
                     r_bl=cr if not b and not l else 0,
                 )
-                out.append(f'  <path d="{path}" fill="#111111"/>')
+                out.append(f'  <path d="{path}" fill="{_PREVIEW_QR_DARK}"/>')
 
     # ── Finder patterns: frame3 + ball3 ───────────────────────────────────
     # Which outer corner gets rounded per finder position
@@ -171,13 +171,13 @@ def build_qr_svg(matrix, module_size=20, quiet_zone=4, logo_path=None):
         iw = fw - 2 * border
 
         # Outer filled rect
-        out.append(f'  <path d="{rounded_rect(fx, fy, fw, fw, rif(r_outer,tl), rif(r_outer,tr), rif(r_outer,br), rif(r_outer,bl))}" fill="#111111"/>')
+        out.append(f'  <path d="{rounded_rect(fx, fy, fw, fw, rif(r_outer,tl), rif(r_outer,tr), rif(r_outer,br), rif(r_outer,bl))}" fill="{_PREVIEW_QR_DARK}"/>')
         # Inner white cutout
-        out.append(f'  <path d="{rounded_rect(fx+border, fy+border, iw, iw, rif(r_inner,tl), rif(r_inner,tr), rif(r_inner,br), rif(r_inner,bl))}" fill="white"/>')
+        out.append(f'  <path d="{rounded_rect(fx+border, fy+border, iw, iw, rif(r_inner,tl), rif(r_inner,tr), rif(r_inner,br), rif(r_inner,bl))}" fill="{_PREVIEW_QR_LIGHT}"/>')
         # Ball (3×3 modules)
         pad = 2 * ms
         bw  = 3 * ms
-        out.append(f'  <path d="{rounded_rect(fx+pad, fy+pad, bw, bw, rif(r_ball,tl), rif(r_ball,tr), rif(r_ball,br), rif(r_ball,bl))}" fill="#111111"/>')
+        out.append(f'  <path d="{rounded_rect(fx+pad, fy+pad, bw, bw, rif(r_ball,tl), rif(r_ball,tr), rif(r_ball,br), rif(r_ball,bl))}" fill="{_PREVIEW_QR_DARK}"/>')
 
     # ── Logo: logo.svg inlined (no <image> tag — fully embedded) ─────────────
     out.append(_build_logo_group(ms, total, logo_path))
@@ -259,7 +259,7 @@ def _round_rect_path(p, x, y, w, h, r_tl=0, r_tr=0, r_br=0, r_bl=0):
     p.close()
 
 
-def draw_qr_on_canvas(c, matrix, module_size=20, quiet_zone=2):
+def draw_qr_on_canvas(c, matrix, module_size=20, quiet_zone=2, palette=None):
     """Paint the QR (white field, rounded body modules, finder patterns) straight
     onto reportlab canvas ``c``, skipping svglib entirely.
 
@@ -290,8 +290,10 @@ def draw_qr_on_canvas(c, matrix, module_size=20, quiet_zone=2):
         for col in range(logo_c0, logo_c0 + 13):
             skip.add((r, col))
 
+    dark, light = get_qr_print_colors(palette)
+
     # White field behind the modules (the <rect fill="white"/>).
-    c.setFillColor(_QR_LIGHT)
+    c.setFillColor(light)
     c.rect(0, 0, total, total, stroke=0, fill=1)
 
     cr = ms * 0.40
@@ -321,7 +323,7 @@ def draw_qr_on_canvas(c, matrix, module_size=20, quiet_zone=2):
                     r_br=cr if not b and not r else 0,
                     r_bl=cr if not b and not l else 0,
                 )
-    c.setFillColor(_QR_DARK)
+    c.setFillColor(dark)
     c.drawPath(body, stroke=0, fill=1)
 
     # Finder patterns: dark frame → white cutout → dark ball.
@@ -347,13 +349,13 @@ def draw_qr_on_canvas(c, matrix, module_size=20, quiet_zone=2):
         outer = c.beginPath()
         _round_rect_path(outer, fx, fy, fw, fw,
                          rif(r_outer, tl), rif(r_outer, tr), rif(r_outer, br), rif(r_outer, bl))
-        c.setFillColor(_QR_DARK)
+        c.setFillColor(dark)
         c.drawPath(outer, stroke=0, fill=1)
 
         inner = c.beginPath()
         _round_rect_path(inner, fx + border, fy + border, iw, iw,
                          rif(r_inner, tl), rif(r_inner, tr), rif(r_inner, br), rif(r_inner, bl))
-        c.setFillColor(_QR_LIGHT)
+        c.setFillColor(light)
         c.drawPath(inner, stroke=0, fill=1)
 
         pad = 2 * ms
@@ -361,7 +363,7 @@ def draw_qr_on_canvas(c, matrix, module_size=20, quiet_zone=2):
         ball = c.beginPath()
         _round_rect_path(ball, fx + pad, fy + pad, bw, bw,
                          rif(r_ball, tl), rif(r_ball, tr), rif(r_ball, br), rif(r_ball, bl))
-        c.setFillColor(_QR_DARK)
+        c.setFillColor(dark)
         c.drawPath(ball, stroke=0, fill=1)
 
     return total

@@ -13,9 +13,10 @@ from allokit import database as db
 from allokit.qr_gen import (
     generate_qr_svg, _make_qr, build_qr_svg, draw_qr_on_canvas, logo_only_qr_svg,
 )
+from allokit.colors import load_template_palette
 from allokit.compose import (
     _build_composed_svg, _blank_template, _template_unit_scale,
-    svg_file_to_drawing, svg_to_pdf,
+    svg_file_to_drawing,
 )
 from allokit.config import TEMPLATE_PATH, LOGO_PATH, JOBS_DIR
 from allokit.validation import URL_RULE_MESSAGE, is_valid_url
@@ -215,6 +216,62 @@ def cancel_all(job_ids: list[int] | None = None) -> dict:
     }
 
 
+def _template_pdf_layout(template_str: str, template_drawing):
+    """Return page size and viewBox→PDF scale factors for template + QR placement."""
+    page_w, page_h = template_drawing.width, template_drawing.height
+    vb = re.search(r'viewBox=["\']([^"\']+)["\']', template_str)
+    vb_parts = vb.group(1).split() if vb else ["0", "0", str(page_w), str(page_h)]
+    vb_w, vb_h = float(vb_parts[2]), float(vb_parts[3])
+    kx, ky = page_w / vb_w, page_h / vb_h
+    return page_w, page_h, kx, ky
+
+
+def _draw_sticker_page(
+    c,
+    url: str,
+    *,
+    template_drawing,
+    page_h: float,
+    palette,
+    blank_tpl: str,
+    tmp_svg_path,
+    logo_cache: dict,
+    kx: float,
+    ky: float,
+    qr_output_path=None,
+):
+    """Render one sticker (template + CMYK QR + logo) onto an open PDF canvas."""
+    qr = _make_qr(url)
+    matrix = qr.matrix
+    qr_total = (len(matrix) + 2 * QUIET_ZONE) * MODULE_SIZE
+
+    qr_svg = build_qr_svg(matrix, MODULE_SIZE, QUIET_ZONE, str(LOGO_PATH))
+    if qr_output_path is not None:
+        qr_output_path.write_text(qr_svg, encoding="utf-8")
+
+    renderPDF.draw(template_drawing, c, 0, 0)
+
+    sx = QR_WIDTH / qr_total
+    sy = QR_HEIGHT / qr_total
+    c.saveState()
+    c.translate(QR_X * kx, page_h - QR_Y * ky)
+    c.scale(sx * kx, -sy * ky)
+    draw_qr_on_canvas(c, matrix, MODULE_SIZE, QUIET_ZONE, palette=palette)
+    c.restoreState()
+
+    logo_drawing = logo_cache.get(qr_total)
+    if logo_drawing is None:
+        logo_page = _build_composed_svg(
+            logo_only_qr_svg(MODULE_SIZE, qr_total, str(LOGO_PATH)),
+            blank_tpl, QR_X, QR_Y, QR_WIDTH, QR_HEIGHT,
+        )
+        tmp_svg_path.write_text(logo_page, encoding="utf-8")
+        logo_drawing = svg_file_to_drawing(str(tmp_svg_path), palette=palette)
+        logo_cache[qr_total] = logo_drawing
+    if logo_drawing is not None:
+        renderPDF.draw(logo_drawing, c, 0, 0)
+
+
 def _process_single(job_id: int, job: dict):
     job_dir = JOBS_DIR / str(job_id)
     job_dir.mkdir(parents=True, exist_ok=True)
@@ -229,16 +286,50 @@ def _process_single(job_id: int, job: dict):
     db.update_job(job_id, progress=50)
     _check_cancelled(job_id)
 
-    composed = _build_composed_svg(qr_svg, _read_template(), QR_X, QR_Y, QR_WIDTH, QR_HEIGHT)
+    template_str = _read_template()
+    palette = load_template_palette(template_str)
 
+    composed = _build_composed_svg(
+        qr_svg, template_str, QR_X, QR_Y, QR_WIDTH, QR_HEIGHT,
+    )
     svg_path = job_dir / "output.svg"
     svg_path.write_text(composed, encoding="utf-8")
+    db.update_job(job_id, progress=60)
     _check_cancelled(job_id)
+
+    template_drawing = svg_file_to_drawing(str(TEMPLATE_PATH), palette=palette)
+    if template_drawing is None:
+        raise JobError("Could not parse the sticker template.")
+
+    page_w, page_h, kx, ky = _template_pdf_layout(
+        template_str, template_drawing,
+    )
+    blank_tpl = _blank_template(template_str)
+    tmp_svg_path = job_dir / "_tmp_page.svg"
+    logo_cache: dict[int, object] = {}
 
     pdf_path = job_dir / "output.pdf"
-    svg_to_pdf(composed, str(pdf_path))
-    _check_cancelled(job_id)
+    c = rl_canvas.Canvas(str(pdf_path), enforceColorSpace="SEP_CMYK")
+    c.setPageSize((page_w, page_h))
+    try:
+        _draw_sticker_page(
+            c, job["url"],
+            template_drawing=template_drawing,
+            page_h=page_h,
+            palette=palette,
+            blank_tpl=blank_tpl,
+            tmp_svg_path=tmp_svg_path,
+            logo_cache=logo_cache,
+            kx=kx, ky=ky,
+        )
+        tmp_svg_path.unlink(missing_ok=True)
+        c.save()
+    except Exception:
+        tmp_svg_path.unlink(missing_ok=True)
+        pdf_path.unlink(missing_ok=True)
+        raise
 
+    _check_cancelled(job_id)
     _cleanup_success_intermediates(job_id, "single")
     db.update_job(job_id, status="ready", progress=100, pdf_path=str(pdf_path))
 
@@ -271,25 +362,22 @@ def _process_batch(job_id: int, job: dict):
 
     template_str = _read_template()
     blank_tpl    = _blank_template(template_str)
+    palette      = load_template_palette(template_str)
     pdf_path     = job_dir / "output.pdf"
     tmp_svg_path = job_dir / "_tmp_page.svg"
 
     # Parse template once and replay per page; draw QR modules via reportlab.
-    template_drawing = svg_file_to_drawing(str(TEMPLATE_PATH))
+    template_drawing = svg_file_to_drawing(str(TEMPLATE_PATH), palette=palette)
     if template_drawing is None:
         raise JobError("Could not parse the sticker template.")
-    page_w, page_h = template_drawing.width, template_drawing.height
-
-    vb = re.search(r'viewBox=["\']([^"\']+)["\']', template_str)
-    vb_parts = vb.group(1).split() if vb else ["0", "0", str(page_w), str(page_h)]
-    vb_w, vb_h = float(vb_parts[2]), float(vb_parts[3])
-    upx_x, upx_y = _template_unit_scale(template_str)
-    kx, ky = page_w / vb_w, page_h / vb_h
+    page_w, page_h, kx, ky = _template_pdf_layout(
+        template_str, template_drawing,
+    )
 
     # Logo drawing cached by QR canvas size (scale depends on matrix version).
     logo_cache: dict[int, object] = {}
 
-    c = rl_canvas.Canvas(str(pdf_path))
+    c = rl_canvas.Canvas(str(pdf_path), enforceColorSpace="SEP_CMYK")
     c.setPageSize((page_w, page_h))
 
     try:
@@ -300,36 +388,17 @@ def _process_batch(job_id: int, job: dict):
             sticker_dir = job_dir / "stickers" / f"{i + 1:04d}"
             sticker_dir.mkdir(parents=True, exist_ok=True)
 
-            qr = _make_qr(url)
-            matrix = qr.matrix
-            N = len(matrix)
-            qr_total = (N + 2 * QUIET_ZONE) * MODULE_SIZE
-
-            qr_svg = build_qr_svg(matrix, MODULE_SIZE, QUIET_ZONE, str(LOGO_PATH))
-            (sticker_dir / "qr_output.svg").write_text(qr_svg, encoding="utf-8")
-
-            renderPDF.draw(template_drawing, c, 0, 0)
-
-            # Map QR canvas coordinates into the template QR window.
-            sx = (QR_WIDTH * upx_x) / qr_total
-            sy = (QR_HEIGHT * upx_y) / qr_total
-            c.saveState()
-            c.translate(QR_X * upx_x * kx, page_h - QR_Y * upx_y * ky)
-            c.scale(sx * kx, -sy * ky)
-            draw_qr_on_canvas(c, matrix, MODULE_SIZE, QUIET_ZONE)
-            c.restoreState()
-
-            logo_drawing = logo_cache.get(qr_total)
-            if logo_drawing is None:
-                logo_page = _build_composed_svg(
-                    logo_only_qr_svg(MODULE_SIZE, qr_total, str(LOGO_PATH)),
-                    blank_tpl, QR_X, QR_Y, QR_WIDTH, QR_HEIGHT,
-                )
-                tmp_svg_path.write_text(logo_page, encoding="utf-8")
-                logo_drawing = svg_file_to_drawing(str(tmp_svg_path))
-                logo_cache[qr_total] = logo_drawing
-            if logo_drawing is not None:
-                renderPDF.draw(logo_drawing, c, 0, 0)
+            _draw_sticker_page(
+                c, url,
+                template_drawing=template_drawing,
+                page_h=page_h,
+                palette=palette,
+                blank_tpl=blank_tpl,
+                tmp_svg_path=tmp_svg_path,
+                logo_cache=logo_cache,
+                kx=kx, ky=ky,
+                qr_output_path=sticker_dir / "qr_output.svg",
+            )
 
             c.showPage()
 

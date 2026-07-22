@@ -4,6 +4,9 @@ import tempfile
 from pathlib import Path
 from svglib.svglib import svg2rlg
 from reportlab.graphics import renderPDF
+from reportlab.pdfgen import canvas as rl_canvas
+
+from allokit.colors import apply_print_colors, load_template_palette, parse_palette
 from allokit.qr_gen import generate_qr_svg
 
 
@@ -54,6 +57,9 @@ def _blank_template(template):
 def _build_composed_svg(qr_svg, template, x, y, width, height):
     """
     Pure string transform: compose QR SVG into template SVG. No file I/O.
+
+    ``x``, ``y``, ``width``, and ``height`` are in template viewBox units
+    (Illustrator artboard coordinates), not CSS pixels.
     """
     # QR canvas size from its own viewBox
     vb = re.search(r'viewBox="0 0 ([0-9.]+) ([0-9.]+)"', qr_svg)
@@ -66,17 +72,12 @@ def _build_composed_svg(qr_svg, template, x, y, width, height):
     inner = re.sub(r'<svg[^>]*>',         '', inner, count=1)
     inner = re.sub(r'</svg>\s*$',         '', inner).strip()
 
-    # Pixel → SVG unit mapping
-    upx_x, upx_y = _template_unit_scale(template)
-
     # Build transform: scale QR canvas → target size, move to (x, y)
-    tx = x * upx_x
-    ty = y * upx_y
-    sx = (width  * upx_x) / qr_w
-    sy = (height * upx_y) / qr_h
+    sx = width / qr_w
+    sy = height / qr_h
 
     nested = (
-        f'\n  <g transform="translate({tx:.4f},{ty:.4f}) scale({sx:.6f},{sy:.6f})">\n'
+        f'\n  <g transform="translate({x:.4f},{y:.4f}) scale({sx:.6f},{sy:.6f})">\n'
         f'    {inner}\n'
         f'  </g>\n'
     )
@@ -92,8 +93,11 @@ def _build_composed_svg(qr_svg, template, x, y, width, height):
 _SVG_PT_SCALE = 96.0 / 72.0
 
 
-def svg_file_to_drawing(svg_path):
+def svg_file_to_drawing(svg_path, palette=None):
     """Parse an SVG file into a reportlab Drawing at true physical size.
+
+    When ``palette`` is omitted, print colors are resolved from SVG metadata in
+    the file, falling back to ``template.svg`` if the file has no palette.
 
     Returns None if svglib cannot parse the file.
     """
@@ -103,21 +107,45 @@ def svg_file_to_drawing(svg_path):
     drawing.scale(_SVG_PT_SCALE, _SVG_PT_SCALE)
     drawing.width  *= _SVG_PT_SCALE
     drawing.height *= _SVG_PT_SCALE
+
+    if palette is None:
+        svg_text = Path(svg_path).read_text(encoding="utf-8")
+        palette = parse_palette(svg_text)
+        if not palette.swatches:
+            palette = load_template_palette()
+    apply_print_colors(drawing, palette)
     return drawing
 
 
-def svg_to_pdf(svg_string, output_pdf):
-    """Convert a composed SVG string to a single-page PDF file."""
+def drawing_to_pdf(drawing, output_pdf):
+    """Render a ReportLab drawing to a CMYK PDF with spot-color support."""
+    page_size = (drawing.width, drawing.height)
+    c = rl_canvas.Canvas(
+        str(output_pdf),
+        pagesize=page_size,
+        enforceColorSpace="SEP_CMYK",
+    )
+    renderPDF.draw(drawing, c, 0, 0)
+    c.save()
+
+
+def svg_to_pdf(svg_string, output_pdf, palette=None):
+    """Convert a composed SVG string to a single-page CMYK PDF file."""
+    if palette is None:
+        palette = parse_palette(svg_string)
+        if not palette.swatches:
+            palette = load_template_palette()
+
     tmp = tempfile.NamedTemporaryFile(suffix='.svg', delete=False,
                                       mode='w', encoding='utf-8')
     tmp.write(svg_string)
     tmp.close()
 
     try:
-        drawing = svg_file_to_drawing(tmp.name)
+        drawing = svg_file_to_drawing(tmp.name, palette=palette)
         if drawing is None:
             raise ValueError("svglib could not parse the SVG — enable save_svg=True and inspect it")
-        renderPDF.drawToFile(drawing, output_pdf)
+        drawing_to_pdf(drawing, output_pdf)
     finally:
         os.unlink(tmp.name)
 

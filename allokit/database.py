@@ -41,6 +41,14 @@ def init():
             "CREATE UNIQUE INDEX IF NOT EXISTS idx_jobs_client_token "
             "ON jobs(client_token)"
         )
+        _migrate(c)
+
+
+def _migrate(c):
+    """Add columns introduced after the first production schema."""
+    cols = {row[1] for row in c.execute("PRAGMA table_info(jobs)")}
+    if "completed_at" not in cols:
+        c.execute("ALTER TABLE jobs ADD COLUMN completed_at TEXT")
 
 
 def create_job(name, type_, url=None, sticker_count=1, client_token=None):
