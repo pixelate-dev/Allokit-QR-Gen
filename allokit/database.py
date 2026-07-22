@@ -32,7 +32,8 @@ def init():
                 error         TEXT,
                 created_at    TEXT    NOT NULL,
                 completed_at  TEXT,
-                client_token  TEXT
+                client_token  TEXT,
+                size          TEXT    NOT NULL DEFAULT 'large'
             )
         """)
         # Dedup guard for idempotent uploads (SQLite treats NULLs as distinct,
@@ -49,15 +50,19 @@ def _migrate(c):
     cols = {row[1] for row in c.execute("PRAGMA table_info(jobs)")}
     if "completed_at" not in cols:
         c.execute("ALTER TABLE jobs ADD COLUMN completed_at TEXT")
+    if "size" not in cols:
+        c.execute(
+            "ALTER TABLE jobs ADD COLUMN size TEXT NOT NULL DEFAULT 'large'"
+        )
 
 
-def create_job(name, type_, url=None, sticker_count=1, client_token=None):
+def create_job(name, type_, url=None, sticker_count=1, client_token=None, size="large"):
     created_at = datetime.now(timezone.utc).isoformat()
     with _lock, _conn() as c:
         cur = c.execute(
-            "INSERT INTO jobs (name, type, url, sticker_count, created_at, client_token) "
-            "VALUES (?, ?, ?, ?, ?, ?)",
-            (name, type_, url, sticker_count, created_at, client_token)
+            "INSERT INTO jobs (name, type, url, sticker_count, created_at, client_token, size) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (name, type_, url, sticker_count, created_at, client_token, size)
         )
         return cur.lastrowid
 

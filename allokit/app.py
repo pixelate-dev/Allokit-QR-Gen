@@ -17,7 +17,7 @@ from pydantic import BaseModel
 from allokit import database as db
 from allokit import worker
 from allokit.compose import _build_composed_svg
-from allokit.config import FRONTEND_DIR, JOBS_DIR, TEMPLATE_PATH
+from allokit.config import FRONTEND_DIR, JOBS_DIR, get_sticker_size, normalize_sticker_size
 from allokit.validation import URL_RULE_MESSAGE, is_valid_url
 
 MAX_CSV_BYTES = 5 * 1024 * 1024  # 5 MB cap on a batch CSV upload
@@ -63,6 +63,7 @@ app.add_middleware(
 class SingleJobRequest(BaseModel):
     name: str
     url: str
+    size: str = "large"
 
 
 class RenameRequest(BaseModel):
@@ -71,6 +72,13 @@ class RenameRequest(BaseModel):
 
 class CancelAllRequest(BaseModel):
     job_ids: list[int] | None = None
+
+
+def _parse_size(size: str | None) -> str:
+    try:
+        return normalize_sticker_size(size)
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from e
 
 
 @app.get("/stats")
@@ -101,7 +109,8 @@ def create_single(body: SingleJobRequest):
     url = body.url.strip()
     if not is_valid_url(url):
         raise HTTPException(400, f"Enter a valid URL. {URL_RULE_MESSAGE}")
-    job_id = db.create_job(name=body.name, type_="single", url=url)
+    size = _parse_size(body.size)
+    job_id = db.create_job(name=body.name, type_="single", url=url, size=size)
     worker.enqueue(job_id)
     return db.get_job(job_id)
 
@@ -111,12 +120,15 @@ async def create_batch(
     name: str = Form(...),
     file: UploadFile = File(...),
     client_token: Optional[str] = Form(default=None),
+    size: Optional[str] = Form(default="large"),
 ):
     # Idempotent batch create via client_token.
     if client_token:
         existing = db.get_job_by_client_token(client_token)
         if existing:
             return existing
+
+    size = _parse_size(size)
 
     content = await file.read()
     if len(content) > MAX_CSV_BYTES:
@@ -135,7 +147,8 @@ async def create_batch(
 
     try:
         job_id = db.create_job(
-            name=name, type_="batch", sticker_count=len(urls), client_token=client_token
+            name=name, type_="batch", sticker_count=len(urls),
+            client_token=client_token, size=size,
         )
     except sqlite3.IntegrityError:
         # Duplicate client_token from a concurrent request.
@@ -198,11 +211,12 @@ def _composed_svg_path(job_id: int, job: dict):
 
     qr_path = job_dir / "qr_output.svg"
     if job["type"] == "single" and qr_path.exists():
+        size = get_sticker_size(job.get("size"))
         qr_svg = qr_path.read_text(encoding="utf-8")
-        template = TEMPLATE_PATH.read_text(encoding="utf-8")
+        template = size.template_path.read_text(encoding="utf-8")
         composed = _build_composed_svg(
             qr_svg, template,
-            worker.QR_X, worker.QR_Y, worker.QR_WIDTH, worker.QR_HEIGHT,
+            size.qr_x, size.qr_y, size.qr_width, size.qr_height,
         )
         svg_path.write_text(composed, encoding="utf-8")
         return svg_path

@@ -1296,16 +1296,357 @@ main.is-exiting {
   margin-top: 0;
 }
 
-/* Generate button stacks above the steps image for correct shadow layering. */
+/* Generate button stays above following content for correct shadow layering. */
 #form-manual .form-card-head,
 #form-manual .form-fields {
   flex-shrink: 0;
+}
+
+#form-manual .form-footer {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
 }
 
 #form-manual .form-actions {
   flex-shrink: 0;
   position: relative;
   z-index: 2;
+  margin-top: 0;
+}
+
+#form-manual .form-tip--compact {
+  display: flex;
+  flex-shrink: 0;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin: 0;
+  margin-top: auto;
+  padding-top: 0;
+  border-top: none;
+  text-align: left;
+  line-height: 1.45;
+}
+
+#form-manual .form-tip--compact strong {
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+#form-manual .guide-link-card {
+  display: none;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0;
+  padding: 0.75rem 0.875rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--subtle-blue-gradient);
+  text-decoration: none;
+  transition: border-color var(--duration-fast) var(--ease-out),
+              box-shadow var(--duration-fast) var(--ease-out),
+              transform var(--duration-fast) var(--ease-out);
+}
+
+#form-manual .guide-link-card:hover {
+  border-color: rgba(25, 113, 242, 0.4);
+  box-shadow: 0 4px 14px rgba(25, 113, 242, 0.12);
+  transform: translateY(-1px);
+}
+
+.guide-link-card__icon {
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-sm);
+  background: var(--blue-light);
+  color: var(--blue);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.guide-link-card__icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.guide-link-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.guide-link-card__title {
+  font-size: 0.833rem;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.3;
+}
+
+.guide-link-card__sub {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  line-height: 1.3;
+}
+
+.guide-link-card__chevron {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  margin-left: auto;
+  color: var(--text-muted);
+  transition: transform var(--duration-fast) var(--ease-out),
+              color var(--duration-fast) var(--ease-out);
+}
+
+#form-manual .guide-link-card:hover .guide-link-card__chevron {
+  color: var(--blue);
+  transform: translateX(2px);
+}
+
+.size-field {
+  margin: 0;
+  padding: 0.75rem 0.875rem;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  background: var(--subtle-blue-gradient);
+  min-width: 0;
+  flex-shrink: 0;
+  align-self: stretch;
+}
+
+.size-field > .field-label {
+  display: block;
+  margin-bottom: 0.625rem;
+  padding: 0;
+}
+
+.size-field__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.875rem;
+  min-width: 0;
+}
+
+.size-field__controls {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.size-field__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.12rem;
+  min-width: 0;
+}
+
+.size-field__meta-title {
+  font-size: 0.867rem;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.3;
+}
+
+.size-field__meta-detail {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  line-height: 1.35;
+}
+
+/* Fixed stage = large (1:1.5) so the size panel never reflows. */
+.size-mini {
+  --mini-w: 2.35rem;
+  position: relative;
+  flex-shrink: 0;
+  width: var(--mini-w);
+  height: calc(var(--mini-w) * 1.5);
+}
+
+/*
+ * Single sticker (no SVG crossfade). Height-only morph, center-anchored.
+ * QR mark sizes are width-locked so they stay constant while height changes.
+ */
+.size-mini__sticker {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: var(--mini-w);
+  height: calc(var(--mini-w) * 1.5);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: #fff;
+  border: 1px solid rgba(25, 113, 242, 0.22);
+  border-radius: 0.4rem;
+  box-shadow: 0 2px 8px rgba(25, 113, 242, 0.12);
+  transform: translate(-50%, -50%);
+  transition: height 0.4s cubic-bezier(0.33, 1, 0.68, 1);
+}
+
+.size-mini.is-small .size-mini__sticker {
+  height: calc(var(--mini-w) * 1.3);
+}
+
+.size-mini__plate {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  min-height: 0;
+  /* Top-anchored so the QR travels with the growing top edge. */
+  padding-top: calc(var(--mini-w) * 0.14);
+}
+
+.size-mini__qr {
+  width: calc(var(--mini-w) * 0.58);
+  height: calc(var(--mini-w) * 0.58);
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  background: #eaf1fb;
+  border-radius: 18%;
+}
+
+.size-mini__dot {
+  width: calc(var(--mini-w) * 0.15);
+  height: calc(var(--mini-w) * 0.15);
+  flex-shrink: 0;
+  border-radius: 22%;
+  background: rgba(25, 113, 242, 0.42);
+}
+
+.size-mini__footer {
+  position: relative;
+  flex: 0 0 auto;
+  width: 100%;
+  height: calc(var(--mini-w) * 0.68);
+  transition: height 0.4s cubic-bezier(0.33, 1, 0.68, 1);
+}
+
+.size-mini.is-small .size-mini__footer {
+  height: calc(var(--mini-w) * 0.48);
+}
+
+.size-mini__chevron {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.size-mini__line {
+  position: absolute;
+  left: 50%;
+  top: 58%;
+  width: 44%;
+  height: 0.125rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.55);
+  transform: translate(-50%, -50%);
+}
+
+.size-toggle {
+  display: flex;
+  position: relative;
+  isolation: isolate;
+  flex-shrink: 0;
+  width: fit-content;
+  max-width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 5px;
+  box-shadow: var(--shadow-sm);
+}
+
+.size-toggle::after {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  top: 5px;
+  bottom: 5px;
+  left: 5px;
+  width: calc(50% - 5px);
+  border-radius: 9px;
+  background: var(--blue);
+  box-shadow: 0 1px 3px rgba(25, 113, 242, 0.28), 0 2px 8px rgba(25, 113, 242, 0.18);
+  transition: transform var(--duration-mode) var(--ease-out);
+  transform: translateX(0);
+}
+
+.size-toggle.is-small::after {
+  transform: translateX(100%);
+}
+
+.size-toggle button {
+  position: relative;
+  z-index: 1;
+  flex: 0 0 auto;
+  min-width: 6.5rem;
+  padding: 0.6875rem 1.25rem;
+  border: none;
+  border-radius: 9px;
+  font-family: inherit;
+  font-size: 0.867rem;
+  font-weight: 600;
+  cursor: pointer;
+  background: transparent;
+  color: var(--text-secondary);
+  text-align: center;
+  white-space: nowrap;
+  box-shadow: none;
+  transition: color var(--duration-fast) var(--ease-out);
+}
+
+.size-toggle button.active {
+  color: #fff;
+}
+
+.size-toggle button:not(.active):hover {
+  color: var(--text);
+  background: transparent;
+  box-shadow: none;
+  transform: none;
+}
+
+.size-toggle button:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+
+@media (max-width: 520px) {
+  .size-field__row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+  }
+
+  .size-field__controls {
+    flex-wrap: wrap;
+  }
+
+  .size-mini {
+    align-self: flex-end;
+  }
+
+  .size-toggle {
+    width: 100%;
+  }
+
+  .size-toggle button {
+    flex: 1;
+    min-width: 0;
+  }
 }
 
 #form-batch .field {
@@ -1457,222 +1798,6 @@ main.is-exiting {
   font-size: 0.8rem;
   color: var(--text-muted);
   line-height: 1.5;
-}
-
-#form-manual .form-compact-footer {
-  display: contents;
-}
-
-#form-manual .form-tip--compact {
-  display: none;
-  flex-shrink: 0;
-  align-items: flex-start;
-  gap: 0.5rem;
-  margin: 0 0 0.5rem;
-  padding-top: 0;
-  border-top: none;
-  text-align: left;
-  line-height: 1.45;
-}
-
-#form-manual .guide-link-card {
-  display: none;
-  flex-shrink: 0;
-  align-items: center;
-  gap: 0.75rem;
-  margin: 0 0 0.75rem;
-  padding: 0.75rem 0.875rem;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--subtle-blue-gradient);
-  text-decoration: none;
-  transition: border-color var(--duration-fast) var(--ease-out),
-              box-shadow var(--duration-fast) var(--ease-out),
-              transform var(--duration-fast) var(--ease-out);
-}
-
-#form-manual .guide-link-card:hover {
-  border-color: rgba(25, 113, 242, 0.4);
-  box-shadow: 0 4px 14px rgba(25, 113, 242, 0.12);
-  transform: translateY(-1px);
-}
-
-.guide-link-card__icon {
-  flex-shrink: 0;
-  width: 34px;
-  height: 34px;
-  border-radius: var(--radius-sm);
-  background: var(--blue-light);
-  color: var(--blue);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.guide-link-card__icon svg {
-  width: 18px;
-  height: 18px;
-}
-
-.guide-link-card__body {
-  display: flex;
-  flex-direction: column;
-  gap: 0.1rem;
-  min-width: 0;
-}
-
-.guide-link-card__title {
-  font-size: 0.833rem;
-  font-weight: 600;
-  color: var(--text);
-  line-height: 1.3;
-}
-
-.guide-link-card__sub {
-  font-size: 0.75rem;
-  color: var(--text-muted);
-  line-height: 1.3;
-}
-
-.guide-link-card__chevron {
-  flex-shrink: 0;
-  width: 18px;
-  height: 18px;
-  margin-left: auto;
-  color: var(--text-muted);
-  transition: transform var(--duration-fast) var(--ease-out),
-              color var(--duration-fast) var(--ease-out);
-}
-
-#form-manual .guide-link-card:hover .guide-link-card__chevron {
-  color: var(--blue);
-  transform: translateX(2px);
-}
-
-.form-tip-icon {
-  flex-shrink: 0;
-  width: 1rem;
-  height: 1rem;
-  margin-top: calc((1em * 1.45 - 1rem) / 2);
-  color: var(--blue);
-  opacity: 0.8;
-}
-
-#form-manual .form-tip--compact strong {
-  color: var(--text-secondary);
-  font-weight: 600;
-}
-
-#form-manual .workflow-steps {
-  --wf-arrow: rgba(25, 113, 242, 0.55);
-  container-type: inline-size;
-  flex: 1;
-  display: flex;
-  align-items: stretch;
-  justify-content: center;
-  min-height: 0;
-  margin-top: 0;
-  padding: 0 0.25rem;
-  overflow: hidden;
-  position: relative;
-  z-index: 1;
-}
-
-/* Text scales with the container width (cqw); the illustration area flexes
-   to fill whatever height is left, so captions are never clipped and the
-   images shrink/grow to fit the available space. */
-.wf-list {
-  --wf-gap: clamp(1rem, 7cqw, 4.5rem);
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  width: 100%;
-  min-height: 0;
-  display: flex;
-  align-items: stretch;
-  justify-content: center;
-  gap: var(--wf-gap);
-}
-
-.wf-step {
-  flex: 1 1 0;
-  min-width: 0;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  gap: clamp(0.05rem, 0.3cqw, 0.2rem);
-}
-
-.wf-step__imgwrap {
-  position: relative;
-  flex: 1 1 0;
-  min-height: 0;
-  width: 100%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-.wf-step__img {
-  max-width: 100%;
-  max-height: min(100%, 240px);
-  width: auto;
-  height: auto;
-  object-fit: contain;
-  display: block;
-}
-
-/* Arrow image connector between consecutive steps, centered in the gap
-   and on the illustration. */
-.wf-step__arrow {
-  position: absolute;
-  top: 50%;
-  left: calc(100% + var(--wf-gap) / 2);
-  width: clamp(2.75rem, 10cqw, 7rem);
-  height: auto;
-  object-fit: contain;
-  transform: translate(-50%, -50%);
-  pointer-events: none;
-  z-index: 5;
-}
-
-/* Nudge the last connector (before step 4) slightly left. */
-.wf-step:nth-child(3) .wf-step__arrow {
-  left: calc(100% + var(--wf-gap) / 2 - clamp(0.25rem, 1.5cqw, 1rem));
-}
-
-.wf-step__head {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: clamp(0.3rem, 0.9cqw, 0.6rem);
-  min-width: 0;
-}
-
-.wf-step__num {
-  flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: clamp(1rem, 2.6cqw, 1.5rem);
-  height: clamp(1rem, 2.6cqw, 1.5rem);
-  border-radius: 50%;
-  border: clamp(1.25px, 0.2cqw, 2px) solid var(--blue);
-  color: var(--blue);
-  font-size: clamp(0.6rem, 1.3cqw, 0.85rem);
-  font-weight: 700;
-  line-height: 1;
-}
-
-.wf-step__title {
-  font-size: clamp(0.62rem, 1.45cqw, 0.85rem);
-  font-weight: 700;
-  color: var(--text);
-  letter-spacing: -0.01em;
-  white-space: nowrap;
 }
 
 /* Buttons */
@@ -1913,11 +2038,17 @@ main.is-exiting {
 
 .preview-shell,
 .sticker-frame {
-  width: min(88cqw, calc(100cqh * 1000 / 1500));
+  --preview-ar-w: 2;
+  --preview-ar-h: 3;
+  --sticker-export-w: 2.25;
+  --sticker-export-h: 3.25;
+  --sticker-trim-w: 2;
+  --sticker-trim-h: 3;
+  width: min(88cqw, calc(100cqh * var(--preview-ar-w) / var(--preview-ar-h)));
   max-width: 100%;
   max-height: 100cqh;
   height: auto;
-  aspect-ratio: 1000 / 1500;
+  aspect-ratio: var(--preview-ar-w) / var(--preview-ar-h);
 }
 
 .sticker-frame {
@@ -1927,11 +2058,6 @@ main.is-exiting {
   box-shadow: 0 8px 20px rgba(15, 23, 42, 0.12);
   background: #fff;
   line-height: 0;
-  /* Export is 2.25" × 3.25" (bleed); preview frame shows trim 2" × 3". */
-  --sticker-export-w: 2.25;
-  --sticker-export-h: 3.25;
-  --sticker-trim-w: 2;
-  --sticker-trim-h: 3;
 }
 
 .preview-shell-inner {
@@ -3497,43 +3623,16 @@ main:has(#page-print-guide)::-webkit-scrollbar {
   .panel-right { grid-column: auto; }
 }
 
-/* The workflow-steps illustration needs vertical room. When the viewport is
-   too short we hide it and surface the Tip instead. */
-@media (max-height: 760px) {
-  #form-manual .workflow-steps {
-    display: none;
-  }
-
-  #form-manual .form-compact-footer {
+/* Tall viewports: Print Guide above tip, both above Generate at the bottom.
+   Shorter viewports: tip + Generate only (Generate still bottom). */
+@media (min-height: 780px) {
+  #form-manual .guide-link-card {
     display: flex;
-    flex-direction: column;
-    flex-shrink: 0;
     margin-top: auto;
   }
 
   #form-manual .form-tip--compact {
-    display: flex;
-  }
-
-  #form-manual .form-actions {
     margin-top: 0;
-  }
-}
-
-/* When the illustration is hidden but there's still a little slack below the
-   Tip, also show the Print Guide link. Below 700px there's only room for the
-   Tip, so the link stays hidden. */
-@media (min-height: 700px) and (max-height: 760px) {
-  #form-manual .guide-link-card {
-    display: flex;
-  }
-}
-
-/* Tip-only layout (no illustration, no Print Guide): give the Tip extra space
-   below it so it doesn't look stuck to the Generate button. */
-@media (max-height: 699.98px) {
-  #form-manual .form-tip--compact {
-    margin-bottom: 0.875rem;
   }
 }
 

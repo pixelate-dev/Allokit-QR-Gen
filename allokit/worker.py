@@ -15,18 +15,18 @@ from allokit.qr_gen import (
 )
 from allokit.colors import load_template_palette
 from allokit.compose import (
-    _build_composed_svg, _blank_template, _template_unit_scale,
+    _build_composed_svg, _blank_template,
     svg_file_to_drawing,
 )
-from allokit.config import TEMPLATE_PATH, LOGO_PATH, JOBS_DIR
+from allokit.config import LOGO_PATH, JOBS_DIR, get_sticker_size
 from allokit.validation import URL_RULE_MESSAGE, is_valid_url
 
 _queue = queue.Queue()
 
-# QR placement on the large template — Illustrator points (inches × 72).
-# Artboard: 2.25" × 3.25" → viewBox 0 0 162 234.
-QR_X, QR_Y              = 16.4088, 16.4088
-QR_WIDTH, QR_HEIGHT     = 129.1896, 129.1896
+# Default (large) QR placement — kept for any callers that still import these.
+_large = get_sticker_size("large")
+QR_X, QR_Y              = _large.qr_x, _large.qr_y
+QR_WIDTH, QR_HEIGHT     = _large.qr_width, _large.qr_height
 MODULE_SIZE, QUIET_ZONE = 20, 2
 
 # Maximum rows per CSV batch upload.
@@ -85,10 +85,14 @@ def recover_pending():
     return ids
 
 
-def _read_template():
-    with open(TEMPLATE_PATH, 'r', encoding='utf-8') as f:
+def _read_template(template_path):
+    with open(template_path, 'r', encoding='utf-8') as f:
         return f.read()
 
+
+def _job_size(job: dict):
+    """Resolve sticker size config for a job (defaults to large)."""
+    return get_sticker_size(job.get("size"))
 
 def _check_cancelled(job_id: int):
     job = db.get_job(job_id)
@@ -238,6 +242,10 @@ def _draw_sticker_page(
     logo_cache: dict,
     kx: float,
     ky: float,
+    qr_x: float,
+    qr_y: float,
+    qr_width: float,
+    qr_height: float,
     qr_output_path=None,
 ):
     """Render one sticker (template + CMYK QR + logo) onto an open PDF canvas."""
@@ -251,10 +259,10 @@ def _draw_sticker_page(
 
     renderPDF.draw(template_drawing, c, 0, 0)
 
-    sx = QR_WIDTH / qr_total
-    sy = QR_HEIGHT / qr_total
+    sx = qr_width / qr_total
+    sy = qr_height / qr_total
     c.saveState()
-    c.translate(QR_X * kx, page_h - QR_Y * ky)
+    c.translate(qr_x * kx, page_h - qr_y * ky)
     c.scale(sx * kx, -sy * ky)
     draw_qr_on_canvas(c, matrix, MODULE_SIZE, QUIET_ZONE, palette=palette)
     c.restoreState()
@@ -263,7 +271,7 @@ def _draw_sticker_page(
     if logo_drawing is None:
         logo_page = _build_composed_svg(
             logo_only_qr_svg(MODULE_SIZE, qr_total, str(LOGO_PATH)),
-            blank_tpl, QR_X, QR_Y, QR_WIDTH, QR_HEIGHT,
+            blank_tpl, qr_x, qr_y, qr_width, qr_height,
         )
         tmp_svg_path.write_text(logo_page, encoding="utf-8")
         logo_drawing = svg_file_to_drawing(str(tmp_svg_path), palette=palette)
@@ -275,6 +283,8 @@ def _draw_sticker_page(
 def _process_single(job_id: int, job: dict):
     job_dir = JOBS_DIR / str(job_id)
     job_dir.mkdir(parents=True, exist_ok=True)
+    size = _job_size(job)
+    template_path = size.template_path
 
     _check_cancelled(job_id)
     db.update_job(job_id, status="generating", progress=10)
@@ -286,18 +296,19 @@ def _process_single(job_id: int, job: dict):
     db.update_job(job_id, progress=50)
     _check_cancelled(job_id)
 
-    template_str = _read_template()
+    template_str = _read_template(template_path)
     palette = load_template_palette(template_str)
 
     composed = _build_composed_svg(
-        qr_svg, template_str, QR_X, QR_Y, QR_WIDTH, QR_HEIGHT,
+        qr_svg, template_str,
+        size.qr_x, size.qr_y, size.qr_width, size.qr_height,
     )
     svg_path = job_dir / "output.svg"
     svg_path.write_text(composed, encoding="utf-8")
     db.update_job(job_id, progress=60)
     _check_cancelled(job_id)
 
-    template_drawing = svg_file_to_drawing(str(TEMPLATE_PATH), palette=palette)
+    template_drawing = svg_file_to_drawing(str(template_path), palette=palette)
     if template_drawing is None:
         raise JobError("Could not parse the sticker template.")
 
@@ -321,6 +332,10 @@ def _process_single(job_id: int, job: dict):
             tmp_svg_path=tmp_svg_path,
             logo_cache=logo_cache,
             kx=kx, ky=ky,
+            qr_x=size.qr_x,
+            qr_y=size.qr_y,
+            qr_width=size.qr_width,
+            qr_height=size.qr_height,
         )
         tmp_svg_path.unlink(missing_ok=True)
         c.save()
@@ -337,6 +352,8 @@ def _process_single(job_id: int, job: dict):
 def _process_batch(job_id: int, job: dict):
     job_dir  = JOBS_DIR / str(job_id)
     csv_path = job_dir / "input.csv"
+    size = _job_size(job)
+    template_path = size.template_path
 
     with open(csv_path, newline='', encoding='utf-8') as f:
         reader  = csv.DictReader(f)
@@ -360,14 +377,14 @@ def _process_batch(job_id: int, job: dict):
     total_n = len(urls)
     db.update_job(job_id, status="generating", progress=0, sticker_count=total_n)
 
-    template_str = _read_template()
+    template_str = _read_template(template_path)
     blank_tpl    = _blank_template(template_str)
     palette      = load_template_palette(template_str)
     pdf_path     = job_dir / "output.pdf"
     tmp_svg_path = job_dir / "_tmp_page.svg"
 
     # Parse template once and replay per page; draw QR modules via reportlab.
-    template_drawing = svg_file_to_drawing(str(TEMPLATE_PATH), palette=palette)
+    template_drawing = svg_file_to_drawing(str(template_path), palette=palette)
     if template_drawing is None:
         raise JobError("Could not parse the sticker template.")
     page_w, page_h, kx, ky = _template_pdf_layout(
@@ -397,6 +414,10 @@ def _process_batch(job_id: int, job: dict):
                 tmp_svg_path=tmp_svg_path,
                 logo_cache=logo_cache,
                 kx=kx, ky=ky,
+                qr_x=size.qr_x,
+                qr_y=size.qr_y,
+                qr_width=size.qr_width,
+                qr_height=size.qr_height,
                 qr_output_path=sticker_dir / "qr_output.svg",
             )
 

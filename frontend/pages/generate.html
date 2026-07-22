@@ -223,10 +223,37 @@
                 </div>
               </label>
             </div>
-            <div class="form-compact-footer">
-              <p class="form-tip form-tip--compact" id="manual-print-hint">
-                <span><strong>Tip:</strong> Generated PDFs are print-ready at 2.25&Prime; &times; 3.25&Prime; (includes bleed) and include the Allokit logo.</span>
-              </p>
+            <div class="form-footer">
+              <div class="size-field">
+                <span class="field-label" id="manual-size-label">Sticker size</span>
+                <div class="size-field__row">
+                  <div class="size-field__controls">
+                    <div class="size-toggle" id="manual-size-toggle" role="group" aria-labelledby="manual-size-label">
+                      <button type="button" id="manual-size-large" data-size="large" class="active" aria-pressed="true">Large</button>
+                      <button type="button" id="manual-size-small" data-size="small" aria-pressed="false">Small</button>
+                    </div>
+                    <div class="size-field__meta" id="manual-size-meta" aria-live="polite">
+                      <span class="size-field__meta-title" id="manual-size-meta-title">Large</span>
+                      <span class="size-field__meta-detail" id="manual-size-meta-detail">2.25&Prime; &times; 3.25&Prime; bleed &rarr; 2&Prime; &times; 3&Prime; trim</span>
+                    </div>
+                  </div>
+                  <div class="size-mini" id="manual-size-mini" aria-hidden="true">
+                    <div class="size-mini__sticker">
+                      <div class="size-mini__plate">
+                        <div class="size-mini__qr">
+                          <span class="size-mini__dot"></span>
+                        </div>
+                      </div>
+                      <div class="size-mini__footer">
+                        <svg class="size-mini__chevron" viewBox="0 0 162 106" preserveAspectRatio="none" aria-hidden="true">
+                          <path fill="#1971f2" d="M162,106H0V0.51l16.97,19.68c2.35,2.73,5.77,4.29,9.37,4.29h109.32c3.6,0,7.02-1.57,9.37-4.29L162,0.51V106Z"/>
+                        </svg>
+                        <span class="size-mini__line"></span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
               <a href="print-guide.html" class="guide-link-card" id="manual-print-guide-link">
                 <span class="guide-link-card__icon" aria-hidden="true">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -242,52 +269,12 @@
                   <polyline points="9 18 15 12 9 6"/>
                 </svg>
               </a>
+              <p class="form-tip form-tip--compact" id="manual-print-hint">
+                <span><strong>Tip:</strong> Generated PDFs are print-ready at <span id="manual-print-hint-size">2.25&Prime; &times; 3.25&Prime;</span> (includes bleed) and include the Allokit logo.</span>
+              </p>
               <div class="form-actions">
                 <button type="submit" id="manual-submit">Generate</button>
               </div>
-            </div>
-            <div class="workflow-steps">
-              <ol class="wf-list" aria-label="How it works">
-                <li class="wf-step">
-                  <div class="wf-step__imgwrap">
-                    <img class="wf-step__img" src="../assets/step1.png" alt="">
-                    <img class="wf-step__arrow" src="../assets/arrow.png" alt="" aria-hidden="true">
-                  </div>
-                  <div class="wf-step__head">
-                    <span class="wf-step__num">1</span>
-                    <span class="wf-step__title">Enter Project</span>
-                  </div>
-                </li>
-                <li class="wf-step">
-                  <div class="wf-step__imgwrap">
-                    <img class="wf-step__img" src="../assets/step2.png" alt="">
-                    <img class="wf-step__arrow" src="../assets/arrow.png" alt="" aria-hidden="true">
-                  </div>
-                  <div class="wf-step__head">
-                    <span class="wf-step__num">2</span>
-                    <span class="wf-step__title">Generate PDF</span>
-                  </div>
-                </li>
-                <li class="wf-step">
-                  <div class="wf-step__imgwrap">
-                    <img class="wf-step__img" src="../assets/step3.png" alt="">
-                    <img class="wf-step__arrow" src="../assets/arrow.png" alt="" aria-hidden="true">
-                  </div>
-                  <div class="wf-step__head">
-                    <span class="wf-step__num">3</span>
-                    <span class="wf-step__title">Print Label</span>
-                  </div>
-                </li>
-                <li class="wf-step">
-                  <div class="wf-step__imgwrap">
-                    <img class="wf-step__img" src="../assets/step4.png" alt="">
-                  </div>
-                  <div class="wf-step__head">
-                    <span class="wf-step__num">4</span>
-                    <span class="wf-step__title">Scan On-Site</span>
-                  </div>
-                </li>
-              </ol>
             </div>
           </form>
 
@@ -436,6 +423,85 @@
   const manualUrlControl  = document.getElementById('manual-url-control');
   const manualUrlError    = document.getElementById('manual-url-error');
   const manualUrlErrorText = document.getElementById('manual-url-error-text');
+  const previewShellBg    = stickerPlaceholder?.querySelector('.preview-shell-bg');
+
+  // Trim sizes shown in the preview frame; export includes bleed.
+  const STICKER_SIZES = {
+    large: {
+      exportW: 2.25, exportH: 3.25, trimW: 2, trimH: 3,
+      template: '../../assets/template_large.svg',
+      tipSize: '2.25″ × 3.25″',
+      label: 'Large',
+      detail: '2.25″ × 3.25″ bleed → 2″ × 3″ trim',
+    },
+    small: {
+      exportW: 1.25, exportH: 1.55, trimW: 1, trimH: 1.3,
+      template: '../../assets/template_small.svg',
+      tipSize: '1.25″ × 1.55″',
+      label: 'Small',
+      detail: '1.25″ × 1.55″ bleed → 1″ × 1.3″ trim',
+    },
+  };
+
+  function getManualSize() {
+    return manualSelectedSize === 'small' ? 'small' : 'large';
+  }
+
+  function updateManualSizeMeta(sizeId) {
+    const cfg = STICKER_SIZES[sizeId] || STICKER_SIZES.large;
+    const title = document.getElementById('manual-size-meta-title');
+    const detail = document.getElementById('manual-size-meta-detail');
+    const mini = document.getElementById('manual-size-mini');
+    if (title) title.textContent = cfg.label;
+    if (detail) detail.textContent = cfg.detail;
+    mini?.classList.toggle('is-small', sizeId === 'small');
+  }
+
+  function setManualSize(sizeId) {
+    manualSelectedSize = sizeId === 'small' ? 'small' : 'large';
+    const toggle = document.getElementById('manual-size-toggle');
+    toggle?.classList.toggle('is-small', manualSelectedSize === 'small');
+    toggle?.querySelectorAll('button[data-size]').forEach((btn) => {
+      const on = btn.dataset.size === manualSelectedSize;
+      btn.classList.toggle('active', on);
+      btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+    updateManualPrintHint(manualSelectedSize);
+    updateManualSizeMeta(manualSelectedSize);
+  }
+
+  function updateManualPrintHint(sizeId) {
+    const tipSize = document.getElementById('manual-print-hint-size');
+    if (!tipSize) return;
+    const cfg = STICKER_SIZES[sizeId] || STICKER_SIZES.large;
+    tipSize.textContent = cfg.tipSize;
+  }
+
+  function applyStickerSizePreview(sizeId) {
+    const cfg = STICKER_SIZES[sizeId] || STICKER_SIZES.large;
+    [stickerPlaceholder, stickerResult].forEach((el) => {
+      if (!el) return;
+      el.style.setProperty('--preview-ar-w', String(cfg.trimW));
+      el.style.setProperty('--preview-ar-h', String(cfg.trimH));
+      el.style.setProperty('--sticker-export-w', String(cfg.exportW));
+      el.style.setProperty('--sticker-export-h', String(cfg.exportH));
+      el.style.setProperty('--sticker-trim-w', String(cfg.trimW));
+      el.style.setProperty('--sticker-trim-h', String(cfg.trimH));
+    });
+    if (previewShellBg && previewShellBg.getAttribute('data') !== cfg.template) {
+      previewShellBg.setAttribute('data', cfg.template);
+    }
+  }
+
+  let manualSelectedSize = 'large';
+  document.getElementById('manual-size-toggle')?.querySelectorAll('button[data-size]').forEach((btn) => {
+    btn.addEventListener('click', () => setManualSize(btn.dataset.size));
+  });
+
+  // Preview frame stays large until Generate; then locks to that job's size
+  // until the next Generate (size toggle alone does not resize the preview).
+  applyStickerSizePreview('large');
+  setManualSize('large');
 
   // Matches allokit/validation.py: http(s) URL with a host.
   function isValidUrl(value) {
@@ -743,6 +809,7 @@
     e.preventDefault();
     const name = document.getElementById('manual-name').value.trim();
     const url  = document.getElementById('manual-url').value.trim();
+    const size = getManualSize();
     if (!name || !url) return;
 
     if (!isValidUrl(url)) {
@@ -758,6 +825,7 @@
     const progressEl = document.getElementById('manual-progress');
     const submitBtn  = document.getElementById('manual-submit');
 
+    applyStickerSizePreview(size);
     resetManualPreview();
     manualJobId = null;
     setManualStatus('Starting…', true);
@@ -770,7 +838,7 @@
       const res = await allokitFetch('/jobs/single', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, url }),
+        body: JSON.stringify({ name, url, size }),
       });
       if (!res.ok) {
         let detail = await res.text();
