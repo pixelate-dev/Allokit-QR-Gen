@@ -1,9 +1,9 @@
-<svg xmlns="http://www.w3.org/2000/svg" xmlns:ak="https://allokit.dev/colors/1" viewBox="0 0 90 126">
-  <g transform="translate(12.7008,12.7008) scale(0.071768,0.071768)">
+<svg id="Layer_1" data-name="Layer 1" xmlns="http://www.w3.org/2000/svg" xmlns:ak="https://allokit.dev/colors/1" viewBox="0 0 162 234">
+  <g transform="translate(16.4088,16.4088) scale(0.143544,0.143544)">
     <g transform="translate(320.00,320.00) scale(0.260000,0.260000)">
 <metadata>
     <ak:palette>
-      <ak:swatch id="brand-blue" type="spot" pantone="2727 C" book="Solid Coated" preview="#1971f2" cmyk="81,44,0,11"/>
+      <ak:swatch id="brand-blue" type="spot" pantone="300 C" book="Solid Coated" preview="#1971f2" cmyk="100,49,0,28"/>
       <ak:swatch id="paper-white" type="knockout" preview="#ffffff" cmyk="0,0,0,0"/>
     </ak:palette>
     <ak:bindings>

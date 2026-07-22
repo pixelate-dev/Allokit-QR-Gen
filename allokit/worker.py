@@ -23,10 +23,10 @@ from allokit.validation import URL_RULE_MESSAGE, is_valid_url
 
 _queue = queue.Queue()
 
-# QR placement on the template — pixel coordinates, matches the Illustrator
-# artboard 1:1 (template.svg's viewBox is already in CSS-pixel units).
-QR_X, QR_Y              = 12.7008, 12.7008
-QR_WIDTH, QR_HEIGHT     = 64.5912, 64.5912
+# QR placement on the large template — Illustrator points (inches × 72).
+# Artboard: 2.25" × 3.25" → viewBox 0 0 162 234.
+QR_X, QR_Y              = 16.4088, 16.4088
+QR_WIDTH, QR_HEIGHT     = 129.1896, 129.1896
 MODULE_SIZE, QUIET_ZONE = 20, 2
 
 # Maximum rows per CSV batch upload.

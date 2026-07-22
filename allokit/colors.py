@@ -112,7 +112,7 @@ _template_palette_cache: Palette | None = None
 
 
 def load_template_palette(template_text: str | None = None) -> Palette:
-    """Load (and cache) the print palette from ``template.svg``."""
+    """Load (and cache) the print palette from ``template_large.svg``."""
     global _template_palette_cache
     if template_text is not None:
         return parse_palette(template_text)

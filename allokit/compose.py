@@ -97,7 +97,7 @@ def svg_file_to_drawing(svg_path, palette=None):
     """Parse an SVG file into a reportlab Drawing at true physical size.
 
     When ``palette`` is omitted, print colors are resolved from SVG metadata in
-    the file, falling back to ``template.svg`` if the file has no palette.
+    the file, falling back to ``template_large.svg`` if the file has no palette.
 
     Returns None if svglib cannot parse the file.
     """
@@ -152,13 +152,13 @@ def svg_to_pdf(svg_string, output_pdf, palette=None):
 
 def compose_and_export(
     qr_data,
-    template_path = "template.svg",
+    template_path = "assets/template_large.svg",
     output_pdf    = None,      # defaults to job_dir/output.pdf
     job_dir       = ".",       # directory for this job's intermediate + output files
-    x      = 50,      # x position from Illustrator (top-left of QR, pixels)
-    y      = 50,      # y position from Illustrator (top-left of QR, pixels)
-    width  = 900,     # width  from Illustrator (pixels)
-    height = 900,     # height from Illustrator (pixels)
+    x      = 16.4088,  # Illustrator points (inches × 72)
+    y      = 16.4088,
+    width  = 129.1896,
+    height = 129.1896,
     module_size = 20,
     quiet_zone  = 2,
     logo_path   = "logo.svg",
@@ -195,6 +195,6 @@ def compose_and_export(
 if __name__ == '__main__':
     compose_and_export(
         qr_data       = "https://qr.allokit.com/d/01KT4A1S3BB8FGCNZ11A1006KY",
-        template_path = "template.svg",
+        template_path = "assets/template_large.svg",
         save_svg = True,
     )

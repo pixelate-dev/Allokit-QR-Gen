@@ -1927,11 +1927,11 @@ main.is-exiting {
   box-shadow: 0 8px 20px rgba(15, 23, 42, 0.12);
   background: #fff;
   line-height: 0;
-  /* Export is 1.25" × 1.75" (bleed); preview frame shows trim 1" × 1.5". */
-  --sticker-export-w: 1.25;
-  --sticker-export-h: 1.75;
-  --sticker-trim-w: 1;
-  --sticker-trim-h: 1.5;
+  /* Export is 2.25" × 3.25" (bleed); preview frame shows trim 2" × 3". */
+  --sticker-export-w: 2.25;
+  --sticker-export-h: 3.25;
+  --sticker-trim-w: 2;
+  --sticker-trim-h: 3;
 }
 
 .preview-shell-inner {
