@@ -116,7 +116,7 @@
 
   <!-- ============ PAGE 1: GENERATE ============ -->
   <main>
-    <section id="page-generate">
+    <section id="page-generate" data-dense="0">
 
       <div class="page-header">
         <div>
@@ -189,7 +189,7 @@
         <div class="panel-left">
 
           <!-- Manual mode form -->
-          <form id="form-manual" class="mode-panel is-active">
+          <form id="form-manual" class="mode-panel is-active" data-footer-fit="1">
             <div class="form-card-head">
               <h2>Manual Generation</h2>
               <p>Enter a project name and URL to generate a single sticker PDF.</p>
@@ -260,7 +260,7 @@
               <div class="form-actions">
                 <button type="submit" id="manual-submit">Generate</button>
               </div>
-              <a href="print-guide.html" class="guide-link-card" id="manual-print-guide-link">
+              <a href="print-guide.html" class="guide-link-card" id="manual-print-guide-link" aria-hidden="true">
                 <span class="guide-link-card__icon" aria-hidden="true">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
@@ -275,7 +275,7 @@
                   <polyline points="9 18 15 12 9 6"/>
                 </svg>
               </a>
-              <div class="workflow-steps">
+              <div class="workflow-steps" id="manual-workflow-steps" aria-hidden="true">
                 <ol class="wf-list" aria-label="How it works">
                   <li class="wf-step">
                     <div class="wf-step__imgwrap">
@@ -553,6 +553,164 @@
   // until the next Generate (size toggle alone does not resize the preview).
   applyStickerSizePreview('large');
   setManualSize('large');
+
+  // Progressive footer extras + short-screen density:
+  // fit 1/2/3 = size only / +Print Guide / +steps
+  // dense 1–5 = page chrome → tip → form subtitle → compact paddings → last-resort stats compact
+  // Stat cards keep original design (with subtitles) until dense 5.
+  // Size meta + mini sticker stay visible (they sit beside the toggle, not below it).
+  (function initManualFooterFit() {
+    const app = document.getElementById('app');
+    const page = document.getElementById('page-generate');
+    const form = formManual;
+    const footer = form?.querySelector('.form-footer');
+    const tip = footer?.querySelector('.form-tip');
+    const actions = footer?.querySelector('.form-actions');
+    const guide = document.getElementById('manual-print-guide-link');
+    const steps = document.getElementById('manual-workflow-steps');
+    if (!app || !page || !form || !footer || !actions || !guide || !steps) return;
+
+    const STEPS_MIN_PX = 120;
+    const GUIDE_FALLBACK_PX = 72;
+    const GUIDE_MAX_PX = 100;
+    const MAX_STATS_BOOST_PX = 56;
+    const MAX_DENSE = 5;
+    let raf = 0;
+    let guideNaturalH = GUIDE_FALLBACK_PX;
+
+    function measureGuideHeight() {
+      // Measure in normal footer flow so width/wrapping match the real card.
+      const prevFit = form.dataset.footerFit;
+      const prevStepsDisplay = steps.style.display;
+      form.dataset.footerFit = '2';
+      steps.style.display = 'none';
+      void form.offsetHeight;
+      const measured = guide.offsetHeight;
+      steps.style.display = prevStepsDisplay;
+      form.dataset.footerFit = prevFit;
+      void form.offsetHeight;
+
+      // Guard against bad measurements that would block fit 2/3 forever.
+      if (measured >= 40 && measured <= GUIDE_MAX_PX) {
+        guideNaturalH = measured;
+      } else {
+        guideNaturalH = GUIDE_FALLBACK_PX;
+      }
+    }
+
+    function coreFits() {
+      if (footer.scrollHeight > footer.clientHeight + 1) return false;
+      const formRect = form.getBoundingClientRect();
+      const btnRect = actions.getBoundingClientRect();
+      const padBottom = parseFloat(getComputedStyle(form).paddingBottom) || 0;
+      return btnRect.bottom <= formRect.bottom - padBottom + 1;
+    }
+
+    function spaceBelow(el) {
+      const formRect = form.getBoundingClientRect();
+      const elRect = el.getBoundingClientRect();
+      const padBottom = parseFloat(getComputedStyle(form).paddingBottom) || 0;
+      return Math.max(0, formRect.bottom - padBottom - elRect.bottom);
+    }
+
+    function updateManualFooterFit() {
+      // Always evaluate from the locked (non-scrolling) shell first.
+      app.dataset.pageScroll = '0';
+      page.dataset.pageScroll = '0';
+      page.style.setProperty('--stats-boost', '0px');
+      form.dataset.footerFit = '1';
+
+      let dense = 0;
+      page.dataset.dense = '0';
+      void form.offsetHeight;
+
+      while (dense < MAX_DENSE && !coreFits()) {
+        dense += 1;
+        page.dataset.dense = String(dense);
+        void form.offsetHeight;
+      }
+
+      // Extremely short viewports: scroll the page and show the full priority stack
+      // (size toggle + Print Guide + steps) like the largest-screen layout.
+      if (!coreFits()) {
+        app.dataset.pageScroll = '1';
+        page.dataset.pageScroll = '1';
+        page.dataset.dense = '0';
+        form.dataset.footerFit = '3';
+        page.style.setProperty('--stats-boost', '0px');
+        page.dataset.statsExtended = '0';
+        guide.setAttribute('aria-hidden', 'false');
+        steps.setAttribute('aria-hidden', 'false');
+        if (tip) tip.setAttribute('aria-hidden', 'false');
+        return;
+      }
+
+      app.dataset.pageScroll = '0';
+      page.dataset.pageScroll = '0';
+
+      const styles = getComputedStyle(footer);
+      const gap = parseFloat(styles.rowGap) || parseFloat(styles.gap) || 0;
+      measureGuideHeight();
+
+      // Free space under Generate with extras hidden and stats at natural height.
+      form.dataset.footerFit = '1';
+      void form.offsetHeight;
+      const free = spaceBelow(actions);
+      const guideNeed = gap + guideNaturalH;
+      const stepsNeed = guideNeed + gap + STEPS_MIN_PX;
+
+      let fit = '1';
+      if (free >= stepsNeed) fit = '3';
+      else if (free >= guideNeed) fit = '2';
+
+      form.dataset.footerFit = fit;
+      void form.offsetHeight;
+
+      // Only fill a small awkward gap — never inflate stats instead of showing extras.
+      let boost = 0;
+      if (fit === '1') {
+        boost = Math.min(
+          Math.round(spaceBelow(actions)),
+          Math.max(0, Math.ceil(guideNeed) - 1),
+          MAX_STATS_BOOST_PX,
+        );
+      } else if (fit === '2') {
+        boost = Math.min(
+          Math.round(spaceBelow(guide)),
+          Math.max(0, Math.ceil(stepsNeed - guideNeed) - 1),
+          MAX_STATS_BOOST_PX,
+        );
+      }
+
+      page.style.setProperty('--stats-boost', `${boost}px`);
+      page.dataset.statsExtended = boost > 8 ? '1' : '0';
+
+      guide.setAttribute('aria-hidden', fit === '1' ? 'true' : 'false');
+      steps.setAttribute('aria-hidden', fit === '3' ? 'false' : 'true');
+      if (tip) tip.setAttribute('aria-hidden', dense >= 2 ? 'true' : 'false');
+    }
+
+    function scheduleFit() {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(updateManualFooterFit);
+    }
+
+    form.dataset.footerFit = '1';
+    page.dataset.dense = '0';
+    page.dataset.statsExtended = '0';
+    page.dataset.pageScroll = '0';
+    app.dataset.pageScroll = '0';
+    page.style.setProperty('--stats-boost', '0px');
+    if (typeof ResizeObserver !== 'undefined') {
+      const ro = new ResizeObserver(scheduleFit);
+      ro.observe(footer);
+      ro.observe(form);
+      ro.observe(page);
+    } else {
+      window.addEventListener('resize', scheduleFit);
+    }
+    scheduleFit();
+  })();
 
   // Matches allokit/validation.py: http(s) URL with a host.
   function isValidUrl(value) {

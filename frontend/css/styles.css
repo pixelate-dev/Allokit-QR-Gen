@@ -876,6 +876,7 @@ main.is-exiting {
 }
 
 .stat-card {
+  --stat-card-base-min: 118px;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-xl);
@@ -884,7 +885,7 @@ main.is-exiting {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
-  min-height: 118px;
+  min-height: calc(var(--stat-card-base-min) + var(--stats-boost, 0px));
   position: relative;
   overflow: hidden;
 }
@@ -965,7 +966,8 @@ main.is-exiting {
   font-weight: 700;
   letter-spacing: -0.03em;
   line-height: 1.1;
-  margin-top: 0.0625rem;
+  /* Pin value + subtitle to the bottom; header stays at the top. */
+  margin-top: auto;
   position: relative;
   z-index: 1;
   font-variant-numeric: tabular-nums;
@@ -1394,6 +1396,8 @@ main.is-exiting {
   font-weight: 600;
 }
 
+/* Manual footer extras: progressive reveal via data-footer-fit on #form-manual
+   1 = size toggle only, 2 = + Print Guide, 3 = + workflow steps. Generate stays. */
 #form-manual .guide-link-card {
   display: none;
   flex-shrink: 0;
@@ -1408,6 +1412,183 @@ main.is-exiting {
   transition: border-color var(--duration-fast) var(--ease-out),
               box-shadow var(--duration-fast) var(--ease-out),
               transform var(--duration-fast) var(--ease-out);
+}
+
+#form-manual[data-footer-fit="2"] .guide-link-card,
+#form-manual[data-footer-fit="3"] .guide-link-card {
+  display: flex;
+}
+
+/* Short-screen density (set by JS on #page-generate):
+   1 = light page chrome only (keep original stat cards + subtitles),
+   2 = hide tip, 3 = hide form subtitle, 4 = compact size row,
+   5 = last resort: compact stats. */
+#page-generate[data-dense="1"] .page-header,
+#page-generate[data-dense="2"] .page-header,
+#page-generate[data-dense="3"] .page-header,
+#page-generate[data-dense="4"] .page-header,
+#page-generate[data-dense="5"] .page-header {
+  margin-bottom: 0.65rem;
+}
+
+#page-generate[data-dense="1"] .page-header h1,
+#page-generate[data-dense="2"] .page-header h1,
+#page-generate[data-dense="3"] .page-header h1,
+#page-generate[data-dense="4"] .page-header h1,
+#page-generate[data-dense="5"] .page-header h1 {
+  font-size: 1.4rem;
+  margin-bottom: 0.1rem;
+}
+
+#page-generate[data-dense="1"] .page-header p,
+#page-generate[data-dense="2"] .page-header p,
+#page-generate[data-dense="3"] .page-header p,
+#page-generate[data-dense="4"] .page-header p,
+#page-generate[data-dense="5"] .page-header p {
+  display: none;
+}
+
+#page-generate[data-dense="1"] .stats,
+#page-generate[data-dense="2"] .stats,
+#page-generate[data-dense="3"] .stats,
+#page-generate[data-dense="4"] .stats,
+#page-generate[data-dense="5"] .stats {
+  margin-bottom: 0.85rem;
+}
+
+#page-generate[data-dense="2"] #form-manual .form-tip--compact,
+#page-generate[data-dense="3"] #form-manual .form-tip--compact,
+#page-generate[data-dense="4"] #form-manual .form-tip--compact,
+#page-generate[data-dense="5"] #form-manual .form-tip--compact {
+  display: none;
+}
+
+#page-generate[data-dense="3"] #form-manual .form-card-head p,
+#page-generate[data-dense="4"] #form-manual .form-card-head p,
+#page-generate[data-dense="5"] #form-manual .form-card-head p {
+  display: none;
+}
+
+#page-generate[data-dense="3"] #form-manual .form-card-head,
+#page-generate[data-dense="4"] #form-manual .form-card-head,
+#page-generate[data-dense="5"] #form-manual .form-card-head {
+  margin-bottom: 0.55rem;
+}
+
+#page-generate[data-dense="4"] #form-manual .form-fields,
+#page-generate[data-dense="5"] #form-manual .form-fields {
+  padding: 0.7rem 0.85rem;
+  gap: 0.5rem;
+  margin-bottom: 0.7rem;
+}
+
+#page-generate[data-dense="4"] #form-manual .size-field,
+#page-generate[data-dense="5"] #form-manual .size-field {
+  padding: 0.55rem 0.75rem;
+}
+
+#page-generate[data-dense="4"] #form-manual .size-field > .field-label,
+#page-generate[data-dense="5"] #form-manual .size-field > .field-label {
+  margin-bottom: 0.4rem;
+}
+
+#page-generate[data-dense="4"] #form-manual .form-footer,
+#page-generate[data-dense="5"] #form-manual .form-footer {
+  gap: 0.65rem;
+}
+
+/* Last resort only — compact the stats themselves. */
+#page-generate[data-dense="5"] .stats {
+  gap: 0.65rem;
+  margin-bottom: 0.7rem;
+}
+
+#page-generate[data-dense="5"] .stat-card {
+  --stat-card-base-min: 0px;
+  padding: 0.65rem 1rem 0.55rem;
+  gap: 0.05rem;
+}
+
+#page-generate[data-dense="5"] .stat-card-icon {
+  width: 30px;
+  height: 30px;
+}
+
+#page-generate[data-dense="5"] .stat-card-icon svg {
+  width: 15px;
+  height: 15px;
+}
+
+#page-generate[data-dense="5"] .stat-card strong {
+  font-size: 1.3rem;
+}
+
+#page-generate[data-dense="5"] .stat-card-sub {
+  display: none;
+}
+
+/* Extremely short viewports: unlock the shell and scroll the whole page. */
+#app[data-page-scroll="1"] {
+  height: auto;
+  min-height: 100vh;
+}
+
+#app[data-page-scroll="1"] #sidebar {
+  position: sticky;
+  top: 0;
+  align-self: start;
+  height: 100vh;
+}
+
+#app[data-page-scroll="1"] main {
+  overflow: visible;
+}
+
+#page-generate[data-page-scroll="1"] {
+  flex: 0 0 auto;
+  min-height: auto;
+}
+
+#page-generate[data-page-scroll="1"] .panels {
+  flex: 0 0 auto;
+  min-height: auto;
+  align-items: start;
+}
+
+#page-generate[data-page-scroll="1"] .panel-left,
+#page-generate[data-page-scroll="1"] .panel-right {
+  overflow: visible;
+  min-height: 36rem;
+  height: auto;
+}
+
+#page-generate[data-page-scroll="1"] .panel-left > form.mode-panel.is-active,
+#page-generate[data-page-scroll="1"] .panel-right > .mode-panel.is-active {
+  position: relative;
+  inset: auto;
+  height: auto;
+  min-height: 36rem;
+}
+
+#page-generate[data-page-scroll="1"] .panel-left > form.mode-panel:not(.is-active),
+#page-generate[data-page-scroll="1"] .panel-right > .mode-panel:not(.is-active) {
+  position: absolute;
+  inset: 0;
+}
+
+#page-generate[data-page-scroll="1"] #form-manual .form-footer {
+  flex: 0 0 auto;
+}
+
+#page-generate[data-page-scroll="1"] #form-manual .guide-link-card {
+  display: flex;
+}
+
+#page-generate[data-page-scroll="1"] #form-manual .workflow-steps {
+  display: flex;
+  flex: 0 0 auto;
+  min-height: 11rem;
+  overflow: visible;
 }
 
 #form-manual .guide-link-card:hover {
@@ -1481,6 +1662,11 @@ main.is-exiting {
   overflow: hidden;
   position: relative;
   z-index: 1;
+}
+
+#form-manual[data-footer-fit="3"] .workflow-steps {
+  display: flex;
+  min-height: 7.5rem;
 }
 
 /* Text scales with the container width (cqw); the illustration area flexes
@@ -4013,17 +4199,6 @@ main:has(#page-print-guide)::-webkit-scrollbar {
   .panels { grid-template-columns: 1fr; }
   .panel-left,
   .panel-right { grid-column: auto; }
-}
-
-/* Tall viewports: Print Guide + workflow steps fill space below Generate. */
-@media (min-height: 780px) {
-  #form-manual .guide-link-card {
-    display: flex;
-  }
-
-  #form-manual .workflow-steps {
-    display: flex;
-  }
 }
 
 @media (max-width: 768px) {
