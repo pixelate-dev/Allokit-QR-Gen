@@ -3136,10 +3136,22 @@ body:has(#page-history) .history-chrome-in {
   align-items: center;
   justify-content: center;
   padding: 1.5rem;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.22s var(--ease-out);
 }
 
 .csv-size-modal[hidden] {
   display: none !important;
+}
+
+.csv-size-modal.is-open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.csv-size-modal.is-closing {
+  pointer-events: none;
 }
 
 .csv-size-modal__backdrop {
@@ -3162,6 +3174,28 @@ body:has(#page-history) .history-chrome-in {
   border-radius: var(--radius-lg, 16px);
   box-shadow: 0 20px 48px rgba(15, 23, 42, 0.18);
   overflow: hidden;
+  opacity: 0;
+  transform: translateY(10px) scale(0.985);
+  transition:
+    opacity 0.22s var(--ease-out),
+    transform 0.24s var(--ease-out);
+}
+
+.csv-size-modal.is-open .csv-size-modal__dialog {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .csv-size-modal,
+  .csv-size-modal__dialog {
+    transition: none;
+  }
+
+  .csv-size-modal__dialog,
+  .csv-size-modal.is-open .csv-size-modal__dialog {
+    transform: none;
+  }
 }
 
 .csv-size-modal__header {

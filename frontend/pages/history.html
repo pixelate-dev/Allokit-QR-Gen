@@ -1069,7 +1069,7 @@
       return;
     }
     if (isCsvModalSizeMixed()) {
-      csvSizeModalSub.textContent = 'Mixed sizes selected — each CSV keeps its own Large/Small setting.';
+      csvSizeModalSub.textContent = 'Custom size arrangement';
       return;
     }
     const size = csvModalItems[0].size;
@@ -1206,8 +1206,15 @@
     syncCsvModalSizeControl();
   }
 
+  let csvModalCloseTimer = null;
+
   function openCsvSizeModal(files) {
     cancelCsvModalCascade();
+    if (csvModalCloseTimer) {
+      clearTimeout(csvModalCloseTimer);
+      csvModalCloseTimer = null;
+    }
+
     csvModalGlobalSize = 'large';
     csvModalItems = files.map((file) => ({
       id: crypto.randomUUID(),
@@ -1215,17 +1222,48 @@
       size: 'large',
     }));
     renderCsvModalList();
+
     csvSizeModal.hidden = false;
+    csvSizeModal.classList.remove('is-open', 'is-closing');
     document.body.classList.add('csv-size-modal-open');
-    csvSizeModalConfirm?.focus();
+
+    // Double rAF so the closed styles paint before the enter transition.
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (csvSizeModal.hidden || csvSizeModal.classList.contains('is-closing')) return;
+        csvSizeModal.classList.add('is-open');
+        csvSizeModalConfirm?.focus();
+      });
+    });
   }
 
   function closeCsvSizeModal() {
+    if (!csvSizeModal || csvSizeModal.hidden || csvSizeModal.classList.contains('is-closing')) {
+      return;
+    }
+
     cancelCsvModalCascade();
-    csvModalItems = [];
-    csvSizeModal.hidden = true;
-    document.body.classList.remove('csv-size-modal-open');
-    renderCsvModalList();
+
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    csvSizeModal.classList.add('is-closing');
+    csvSizeModal.classList.remove('is-open');
+
+    const finishClose = () => {
+      csvModalCloseTimer = null;
+      csvModalItems = [];
+      renderCsvModalList();
+      csvSizeModal.classList.remove('is-closing');
+      csvSizeModal.hidden = true;
+      document.body.classList.remove('csv-size-modal-open');
+    };
+
+    if (reduceMotion) {
+      finishClose();
+      return;
+    }
+
+    if (csvModalCloseTimer) clearTimeout(csvModalCloseTimer);
+    csvModalCloseTimer = window.setTimeout(finishClose, 240);
   }
 
   async function confirmCsvSizeModal() {
