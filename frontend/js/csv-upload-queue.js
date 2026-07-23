@@ -104,6 +104,7 @@
     formData.append('name', item.name);
     formData.append('file', item.blob, item.fileName);
     formData.append('client_token', item.id);  // idempotent upload retries
+    formData.append('size', item.size === 'small' ? 'small' : 'large');
 
     const abortController = new AbortController();
     currentAbortController = abortController;
@@ -208,21 +209,40 @@
   }
 
   async function enqueueFiles(files) {
-    const csvFiles = Array.from(files).filter((f) => f.name.toLowerCase().endsWith('.csv'));
-    if (csvFiles.length === 0) return 0;
+    const entries = Array.from(files || []).map((entry) => {
+      if (entry && entry.file instanceof File) {
+        return {
+          file: entry.file,
+          size: entry.size === 'small' ? 'small' : 'large',
+          name: entry.name || entry.file.name.replace(/\.csv$/i, ''),
+        };
+      }
+      if (entry instanceof File) {
+        return {
+          file: entry,
+          size: 'large',
+          name: entry.name.replace(/\.csv$/i, ''),
+        };
+      }
+      return null;
+    }).filter(Boolean);
+
+    const csvEntries = entries.filter((entry) => entry.file.name.toLowerCase().endsWith('.csv'));
+    if (csvEntries.length === 0) return 0;
 
     userCancelled = false;
 
     const batchId = crypto.randomUUID();
-    window.AllokitNotifications?.registerUploadBatch?.(batchId, csvFiles.length);
+    window.AllokitNotifications?.registerUploadBatch?.(batchId, csvEntries.length);
 
-    for (const file of csvFiles) {
+    for (const entry of csvEntries) {
       await putItem({
         id: crypto.randomUUID(),
         batchId,
-        name: file.name.replace(/\.csv$/i, ''),
-        fileName: file.name,
-        blob: file,
+        name: entry.name,
+        fileName: entry.file.name,
+        blob: entry.file,
+        size: entry.size,
         status: 'pending',
         error: null,
         createdAt: Date.now(),
@@ -231,7 +251,7 @@
 
     emitStatus(await getStatus());
     processQueue();
-    return csvFiles.length;
+    return csvEntries.length;
   }
 
   async function clearFailed() {

@@ -185,6 +185,29 @@
   </main>
 </div>
 
+<div id="csv-size-modal" class="csv-size-modal" hidden>
+  <button type="button" class="csv-size-modal__backdrop" id="csv-size-modal-backdrop" aria-label="Close"></button>
+  <div class="csv-size-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="csv-size-modal-title">
+    <div class="csv-size-modal__header">
+      <div class="csv-size-modal__heading">
+        <h2 id="csv-size-modal-title">Queue CSV files</h2>
+        <p class="csv-size-modal__sub" id="csv-size-modal-sub">Choose a sticker size for each file, then start the queue.</p>
+      </div>
+      <div class="batch-size-control">
+        <div class="size-toggle batch-size-toggle is-neutral is-idle" id="csv-modal-size-toggle" role="group" aria-label="Sticker size for this upload">
+          <button type="button" data-size="large" aria-pressed="false">Large</button>
+          <button type="button" data-size="small" aria-pressed="false">Small</button>
+        </div>
+      </div>
+    </div>
+    <ul id="csv-modal-file-list" class="batch-file-list csv-size-modal__list" hidden></ul>
+    <div class="csv-size-modal__footer">
+      <button type="button" class="csv-size-modal__cancel" id="csv-size-modal-cancel">Cancel</button>
+      <button type="button" class="csv-size-modal__confirm" id="csv-size-modal-confirm">Start queue</button>
+    </div>
+  </div>
+</div>
+
 <script src="../js/nav.js"></script>
 <script src="../js/job-id-format.js"></script>
 <script src="../js/search.js"></script>
@@ -947,26 +970,327 @@
 
   const addCsvBtn   = document.getElementById('add-csv-btn');
   const addCsvInput = document.getElementById('add-csv-input');
+  const csvSizeModal = document.getElementById('csv-size-modal');
+  const csvSizeModalBackdrop = document.getElementById('csv-size-modal-backdrop');
+  const csvSizeModalCancel = document.getElementById('csv-size-modal-cancel');
+  const csvSizeModalConfirm = document.getElementById('csv-size-modal-confirm');
+  const csvModalSizeToggle = document.getElementById('csv-modal-size-toggle');
+  const csvModalFileList = document.getElementById('csv-modal-file-list');
+  const csvSizeModalSub = document.getElementById('csv-size-modal-sub');
+
+  let csvModalGlobalSize = 'large';
+  /** @type {{ id: string, file: File, size: 'large'|'small' }[]} */
+  let csvModalItems = [];
+  let csvModalCascadeTimers = [];
+  let csvModalCascadeRemaining = 0;
+  let csvModalScrollLocked = false;
+  let csvModalLockedScrollTop = 0;
+  const CSV_MODAL_CASCADE_MS = 40;
+
+  function escapeHtml(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function normalizeCsvModalSize(sizeId) {
+    return sizeId === 'small' ? 'small' : 'large';
+  }
+
+  function isCsvModalSizeMixed() {
+    if (csvModalItems.length === 0) return false;
+    const first = csvModalItems[0].size;
+    return csvModalItems.some((item) => item.size !== first);
+  }
+
+  function applySizeToCsvModalToggle(toggleEl, sizeId) {
+    if (!toggleEl) return;
+    const size = normalizeCsvModalSize(sizeId);
+    const isSmall = size === 'small';
+    toggleEl.classList.toggle('is-small', isSmall);
+    toggleEl.querySelectorAll('button[data-size]').forEach((btn) => {
+      const on = btn.dataset.size === size;
+      btn.classList.toggle('active', on);
+      btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+  }
+
+  function cancelCsvModalCascade() {
+    csvModalCascadeTimers.forEach((timer) => clearTimeout(timer));
+    csvModalCascadeTimers = [];
+    csvModalCascadeRemaining = 0;
+    unlockCsvModalListScroll();
+  }
+
+  function snapCsvModalFileToggles() {
+    csvModalItems.forEach((entry) => {
+      const toggle = csvModalFileList?.querySelector(`.batch-file-size[data-item-id="${CSS.escape(entry.id)}"]`);
+      applySizeToCsvModalToggle(toggle, entry.size);
+    });
+  }
+
+  function isCsvModalToggleVisible(toggleEl) {
+    if (!toggleEl || !csvModalFileList) return false;
+    const listRect = csvModalFileList.getBoundingClientRect();
+    const row = toggleEl.closest('.batch-file-list-item') || toggleEl;
+    const rowRect = row.getBoundingClientRect();
+    return rowRect.bottom > listRect.top && rowRect.top < listRect.bottom;
+  }
+
+  function lockCsvModalListScroll() {
+    if (!csvModalFileList) return;
+    csvModalLockedScrollTop = csvModalFileList.scrollTop;
+    csvModalScrollLocked = true;
+  }
+
+  function unlockCsvModalListScroll() {
+    csvModalScrollLocked = false;
+  }
+
+  function holdCsvModalListScroll() {
+    if (!csvModalScrollLocked || !csvModalFileList) return;
+    if (csvModalFileList.scrollTop !== csvModalLockedScrollTop) {
+      csvModalFileList.scrollTop = csvModalLockedScrollTop;
+    }
+  }
+
+  function preventCsvModalListScroll(e) {
+    if (!csvModalScrollLocked) return;
+    e.preventDefault();
+  }
+
+  function updateCsvModalHint() {
+    if (!csvSizeModalSub) return;
+    if (csvModalItems.length === 0) {
+      csvSizeModalSub.textContent = 'Choose a sticker size for each file, then start the queue.';
+      return;
+    }
+    if (isCsvModalSizeMixed()) {
+      csvSizeModalSub.textContent = 'Mixed sizes selected — each CSV keeps its own Large/Small setting.';
+      return;
+    }
+    const size = csvModalItems[0].size;
+    csvSizeModalSub.textContent = size === 'small'
+      ? 'All files set to Small (1.25″ × 1.55″ with bleed).'
+      : 'All files set to Large (2.25″ × 3.25″ with bleed).';
+  }
+
+  function syncCsvModalSizeControl() {
+    const empty = csvModalItems.length === 0;
+    const mixed = isCsvModalSizeMixed();
+    const neutral = empty || mixed;
+
+    csvModalSizeToggle?.classList.toggle('is-neutral', neutral);
+    csvModalSizeToggle?.classList.toggle('is-idle', empty);
+    csvModalSizeToggle?.setAttribute(
+      'aria-label',
+      empty
+        ? 'Sticker size — add files to choose Large or Small'
+        : mixed
+          ? 'Mixed sticker sizes — choose Large or Small to apply to all files'
+          : 'Sticker size for this upload',
+    );
+
+    csvModalSizeToggle?.querySelectorAll('button[data-size]').forEach((btn) => {
+      btn.disabled = empty;
+    });
+
+    if (neutral) {
+      csvModalSizeToggle?.classList.remove('is-small');
+      csvModalSizeToggle?.querySelectorAll('button[data-size]').forEach((btn) => {
+        btn.classList.remove('active');
+        btn.setAttribute('aria-pressed', 'false');
+      });
+    } else {
+      const sizeId = normalizeCsvModalSize(csvModalItems[0].size);
+      csvModalGlobalSize = sizeId;
+      csvModalSizeToggle?.classList.toggle('is-small', sizeId === 'small');
+      csvModalSizeToggle?.querySelectorAll('button[data-size]').forEach((btn) => {
+        const on = btn.dataset.size === sizeId;
+        btn.classList.toggle('active', on);
+        btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+      });
+    }
+
+    updateCsvModalHint();
+  }
+
+  function setCsvModalGlobalSize(sizeId) {
+    if (csvModalItems.length === 0) return;
+    cancelCsvModalCascade();
+
+    csvModalGlobalSize = normalizeCsvModalSize(sizeId);
+    csvModalItems = csvModalItems.map((item) => ({
+      ...item,
+      size: csvModalGlobalSize,
+    }));
+    syncCsvModalSizeControl();
+
+    const toggles = Array.from(csvModalFileList?.querySelectorAll('.batch-file-size') || []);
+    const visible = toggles.filter((toggle) => isCsvModalToggleVisible(toggle));
+    const hidden = toggles.filter((toggle) => !isCsvModalToggleVisible(toggle));
+
+    hidden.forEach((toggle) => applySizeToCsvModalToggle(toggle, csvModalGlobalSize));
+
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduceMotion || visible.length === 0) {
+      visible.forEach((toggle) => applySizeToCsvModalToggle(toggle, csvModalGlobalSize));
+      return;
+    }
+
+    lockCsvModalListScroll();
+    csvModalCascadeRemaining = visible.length;
+    visible.forEach((toggle, index) => {
+      const timer = window.setTimeout(() => {
+        csvModalCascadeTimers = csvModalCascadeTimers.filter((id) => id !== timer);
+        applySizeToCsvModalToggle(toggle, csvModalGlobalSize);
+        csvModalCascadeRemaining -= 1;
+        if (csvModalCascadeRemaining <= 0) {
+          csvModalCascadeTimers = [];
+          unlockCsvModalListScroll();
+        }
+      }, (index + 1) * CSV_MODAL_CASCADE_MS);
+      csvModalCascadeTimers.push(timer);
+    });
+  }
+
+  function setCsvModalItemSize(itemId, sizeId) {
+    cancelCsvModalCascade();
+    snapCsvModalFileToggles();
+
+    const size = normalizeCsvModalSize(sizeId);
+    const item = csvModalItems.find((entry) => entry.id === itemId);
+    if (!item || item.size === size) {
+      syncCsvModalSizeControl();
+      return;
+    }
+    item.size = size;
+    const toggle = csvModalFileList?.querySelector(`.batch-file-size[data-item-id="${CSS.escape(itemId)}"]`);
+    applySizeToCsvModalToggle(toggle, size);
+    syncCsvModalSizeControl();
+  }
+
+  function renderCsvModalFileToggle(item) {
+    const isSmall = item.size === 'small';
+    return `
+      <div class="size-toggle batch-file-size${isSmall ? ' is-small' : ''}" data-item-id="${item.id}" role="group" aria-label="Size for ${escapeHtml(item.file.name)}">
+        <button type="button" data-size="large" class="${isSmall ? '' : 'active'}" aria-pressed="${isSmall ? 'false' : 'true'}">Large</button>
+        <button type="button" data-size="small" class="${isSmall ? 'active' : ''}" aria-pressed="${isSmall ? 'true' : 'false'}">Small</button>
+      </div>
+    `;
+  }
+
+  function renderCsvModalList() {
+    const count = csvModalItems.length;
+    if (csvSizeModalConfirm) csvSizeModalConfirm.disabled = count === 0;
+
+    if (count === 0) {
+      csvModalFileList.hidden = true;
+      csvModalFileList.innerHTML = '';
+      syncCsvModalSizeControl();
+      return;
+    }
+
+    csvModalFileList.hidden = false;
+    csvModalFileList.innerHTML = csvModalItems
+      .map((item) => `
+        <li class="batch-file-list-item" data-item-id="${item.id}">
+          <span class="batch-file-list-name" title="${escapeHtml(item.file.name)}">${escapeHtml(item.file.name)}</span>
+          ${renderCsvModalFileToggle(item)}
+        </li>
+      `)
+      .join('');
+    syncCsvModalSizeControl();
+  }
+
+  function openCsvSizeModal(files) {
+    cancelCsvModalCascade();
+    csvModalGlobalSize = 'large';
+    csvModalItems = files.map((file) => ({
+      id: crypto.randomUUID(),
+      file,
+      size: 'large',
+    }));
+    renderCsvModalList();
+    csvSizeModal.hidden = false;
+    document.body.classList.add('csv-size-modal-open');
+    csvSizeModalConfirm?.focus();
+  }
+
+  function closeCsvSizeModal() {
+    cancelCsvModalCascade();
+    csvModalItems = [];
+    csvSizeModal.hidden = true;
+    document.body.classList.remove('csv-size-modal-open');
+    renderCsvModalList();
+  }
+
+  async function confirmCsvSizeModal() {
+    if (csvModalItems.length === 0) return;
+
+    const items = csvModalItems.map((item) => ({
+      file: item.file,
+      size: item.size,
+      name: item.file.name.replace(/\.csv$/i, ''),
+    }));
+
+    csvSizeModalConfirm.disabled = true;
+    csvSizeModalConfirm.textContent = `Queuing ${items.length}…`;
+    addCsvBtn.disabled = true;
+    addCsvBtn.textContent = `Saving ${items.length} file(s)…`;
+
+    try {
+      await window.AllokitCsvQueue.enqueueFiles(items);
+      closeCsvSizeModal();
+    } catch (err) {
+      console.error('Failed to save CSV files for upload:', err);
+      alert('Could not prepare CSV files for upload. Please try again.');
+      csvSizeModalConfirm.disabled = false;
+      csvSizeModalConfirm.textContent = 'Start queue';
+      addCsvBtn.disabled = false;
+      addCsvBtn.textContent = '+ Add CSV';
+    } finally {
+      csvSizeModalConfirm.textContent = 'Start queue';
+    }
+  }
 
   addCsvBtn.addEventListener('click', () => addCsvInput.click());
 
-  addCsvInput.addEventListener('change', async () => {
+  addCsvInput.addEventListener('change', () => {
     const files = Array.from(addCsvInput.files).filter((f) => f.name.toLowerCase().endsWith('.csv'));
     addCsvInput.value = '';
     if (files.length === 0) return;
+    openCsvSizeModal(files);
+  });
 
-    addCsvBtn.disabled = true;
-    addCsvBtn.textContent = `Saving ${files.length} file(s)…`;
+  csvModalSizeToggle?.querySelectorAll('button[data-size]').forEach((btn) => {
+    btn.addEventListener('click', () => setCsvModalGlobalSize(btn.dataset.size));
+  });
 
-    try {
-      await window.AllokitCsvQueue.enqueueFiles(files);
-    } catch (err) {
-      console.error('Failed to save CSV files for upload:', err);
-      addCsvBtn.disabled = false;
-      addCsvBtn.textContent = '+ Add CSV';
-      alert('Could not prepare CSV files for upload. Please try again.');
+  csvModalFileList?.addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-size]');
+    const toggle = e.target.closest('.batch-file-size');
+    if (!btn || !toggle) return;
+    setCsvModalItemSize(toggle.dataset.itemId, btn.dataset.size);
+  });
+
+  csvModalFileList?.addEventListener('scroll', holdCsvModalListScroll, { passive: true });
+  csvModalFileList?.addEventListener('wheel', preventCsvModalListScroll, { passive: false });
+  csvModalFileList?.addEventListener('touchmove', preventCsvModalListScroll, { passive: false });
+
+  csvSizeModalCancel?.addEventListener('click', () => closeCsvSizeModal());
+  csvSizeModalBackdrop?.addEventListener('click', () => closeCsvSizeModal());
+  csvSizeModalConfirm?.addEventListener('click', () => confirmCsvSizeModal());
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && csvSizeModal && !csvSizeModal.hidden) {
+      closeCsvSizeModal();
     }
   });
+
 
   window.AllokitCsvQueue.onStatusChange((status) => {
     csvQueuePending = status.pending + status.uploading;

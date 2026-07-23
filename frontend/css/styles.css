@@ -1149,6 +1149,66 @@ main.is-exiting {
   line-height: 1.5;
 }
 
+.form-card-head--batch {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.form-card-head--batch .form-card-head__text {
+  min-width: 0;
+  flex: 1;
+}
+
+.batch-size-control {
+  flex-shrink: 0;
+  padding-top: 0.1rem;
+}
+
+.batch-size-toggle {
+  width: fit-content;
+}
+
+.batch-size-toggle button {
+  min-width: 4.75rem;
+  padding: 0.5rem 0.9rem;
+  font-size: 0.8rem;
+}
+
+/* Mixed sizes: keep the pill, clear selection — no blue thumb. */
+.batch-size-toggle.is-neutral {
+  background: var(--subtle-blue-gradient);
+  border-color: rgba(25, 113, 242, 0.18);
+  box-shadow: none;
+}
+
+.batch-size-toggle.is-neutral::after {
+  opacity: 0;
+  transform: translateX(50%) scale(0.55);
+}
+
+.batch-size-toggle.is-neutral button,
+.batch-size-toggle.is-neutral button.active {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.batch-size-toggle.is-neutral:not(.is-idle) button:hover {
+  color: var(--text);
+}
+
+/* Empty pre-queue: neutral and inactive. */
+.batch-size-toggle.is-idle {
+  opacity: 0.72;
+  pointer-events: none;
+}
+
+.batch-size-toggle.is-idle button:disabled {
+  cursor: default;
+  color: var(--text-muted);
+}
+
 .form-fields {
   display: flex;
   flex-direction: column;
@@ -1323,7 +1383,6 @@ main.is-exiting {
   align-items: flex-start;
   gap: 0.5rem;
   margin: 0;
-  margin-top: auto;
   padding-top: 0;
   border-top: none;
   text-align: left;
@@ -1407,6 +1466,118 @@ main.is-exiting {
 #form-manual .guide-link-card:hover .guide-link-card__chevron {
   color: var(--blue);
   transform: translateX(2px);
+}
+
+#form-manual .workflow-steps {
+  --wf-arrow: rgba(25, 113, 242, 0.55);
+  container-type: inline-size;
+  display: none;
+  flex: 1;
+  align-items: stretch;
+  justify-content: center;
+  min-height: 0;
+  margin-top: 0;
+  padding: 0 0.25rem;
+  overflow: hidden;
+  position: relative;
+  z-index: 1;
+}
+
+/* Text scales with the container width (cqw); the illustration area flexes
+   to fill whatever height is left, so captions are never clipped and the
+   images shrink/grow to fit the available space. */
+.wf-list {
+  --wf-gap: clamp(1rem, 7cqw, 4.5rem);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  min-height: 0;
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  gap: var(--wf-gap);
+}
+
+.wf-step {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: clamp(0.05rem, 0.3cqw, 0.2rem);
+}
+
+.wf-step__imgwrap {
+  position: relative;
+  flex: 1 1 0;
+  min-height: 0;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.wf-step__img {
+  max-width: 100%;
+  max-height: min(100%, 240px);
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  display: block;
+}
+
+/* Arrow image connector between consecutive steps, centered in the gap
+   and on the illustration. */
+.wf-step__arrow {
+  position: absolute;
+  top: 50%;
+  left: calc(100% + var(--wf-gap) / 2);
+  width: clamp(2.75rem, 10cqw, 7rem);
+  height: auto;
+  object-fit: contain;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 5;
+}
+
+/* Nudge the last connector (before step 4) slightly left. */
+.wf-step:nth-child(3) .wf-step__arrow {
+  left: calc(100% + var(--wf-gap) / 2 - clamp(0.25rem, 1.5cqw, 1rem));
+}
+
+.wf-step__head {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(0.3rem, 0.9cqw, 0.6rem);
+  min-width: 0;
+}
+
+.wf-step__num {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: clamp(1rem, 2.6cqw, 1.5rem);
+  height: clamp(1rem, 2.6cqw, 1.5rem);
+  border-radius: 50%;
+  border: clamp(1.25px, 0.2cqw, 2px) solid var(--blue);
+  color: var(--blue);
+  font-size: clamp(0.6rem, 1.3cqw, 0.85rem);
+  font-weight: 700;
+  line-height: 1;
+}
+
+.wf-step__title {
+  font-size: clamp(0.62rem, 1.45cqw, 0.85rem);
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.01em;
+  white-space: nowrap;
 }
 
 .size-field {
@@ -1625,6 +1796,16 @@ main.is-exiting {
 }
 
 @media (max-width: 520px) {
+  .form-card-head--batch {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+  }
+
+  .batch-size-control {
+    align-self: flex-end;
+  }
+
   .size-field__row {
     flex-direction: column;
     align-items: stretch;
@@ -1646,6 +1827,14 @@ main.is-exiting {
   .size-toggle button {
     flex: 1;
     min-width: 0;
+  }
+
+  .batch-size-toggle {
+    width: fit-content;
+  }
+
+  .batch-size-toggle button {
+    flex: 0 0 auto;
   }
 }
 
@@ -1760,14 +1949,14 @@ main.is-exiting {
   display: flex;
   flex-direction: column;
   gap: 0.375rem;
-  max-height: 150px;
+  max-height: 220px;
   overflow-y: auto;
 }
 
 .batch-file-list-item {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.75rem;
   padding: 0.5rem 0.75rem;
   border: 1px solid var(--border-light);
   border-radius: var(--radius-sm);
@@ -1786,9 +1975,50 @@ main.is-exiting {
 }
 
 .batch-file-list-name {
+  flex: 1;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.batch-file-size {
+  flex-shrink: 0;
+  width: fit-content;
+  padding: 2px;
+  background: transparent;
+  border-color: var(--border-light);
+  box-shadow: none;
+}
+
+.batch-file-size::after {
+  top: 2px;
+  bottom: 2px;
+  left: 2px;
+  width: calc(50% - 2px);
+  border-radius: 7px;
+  background: rgba(25, 113, 242, 0.1);
+  box-shadow: none;
+  transition: transform var(--duration-mode) var(--ease-out);
+}
+
+.batch-file-size button {
+  min-width: 3.15rem;
+  padding: 0.28rem 0.45rem;
+  font-size: 0.68rem;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.batch-file-size button.active {
+  color: var(--blue);
+}
+
+.batch-file-size button:not(.active):hover {
+  color: var(--text-secondary);
+  background: transparent;
+  box-shadow: none;
+  transform: none;
 }
 
 .form-tip {
@@ -2898,6 +3128,134 @@ body:has(#page-history) .history-chrome-in {
   cursor: not-allowed;
 }
 
+.csv-size-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+}
+
+.csv-size-modal[hidden] {
+  display: none !important;
+}
+
+.csv-size-modal__backdrop {
+  position: absolute;
+  inset: 0;
+  border: none;
+  padding: 0;
+  background: rgba(17, 24, 39, 0.45);
+  cursor: pointer;
+}
+
+.csv-size-modal__dialog {
+  position: relative;
+  width: min(520px, 100%);
+  max-height: min(80vh, 640px);
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg, 16px);
+  box-shadow: 0 20px 48px rgba(15, 23, 42, 0.18);
+  overflow: hidden;
+}
+
+.csv-size-modal__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.1rem 1.15rem 0.95rem;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.csv-size-modal__heading {
+  min-width: 0;
+  flex: 1;
+}
+
+.csv-size-modal__heading h2 {
+  margin: 0 0 0.25rem;
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+
+.csv-size-modal__sub {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+
+.csv-size-modal__list {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
+  margin: 0;
+  padding: 0.85rem 1.15rem;
+  overflow-y: auto;
+}
+
+.csv-size-modal__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.6rem;
+  padding: 0.9rem 1.15rem 1.05rem;
+  border-top: 1px solid var(--border-light);
+  background: var(--subtle-blue-gradient);
+}
+
+.csv-size-modal__cancel,
+.csv-size-modal__confirm {
+  appearance: none;
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  font-size: 0.867rem;
+  font-weight: 600;
+  padding: 0.625rem 1.05rem;
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-out),
+              border-color var(--duration-fast) var(--ease-out),
+              color var(--duration-fast) var(--ease-out);
+}
+
+.csv-size-modal__cancel {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-secondary);
+}
+
+.csv-size-modal__cancel:hover {
+  border-color: rgba(25, 113, 242, 0.35);
+  color: var(--text);
+}
+
+.csv-size-modal__confirm {
+  border: none;
+  background: var(--blue);
+  color: #fff;
+  box-shadow: 0 1px 2px rgba(25, 113, 242, 0.2), 0 4px 12px rgba(25, 113, 242, 0.18);
+}
+
+.csv-size-modal__confirm:hover:not(:disabled) {
+  background: var(--blue-hover);
+}
+
+.csv-size-modal__confirm:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+body.csv-size-modal-open {
+  overflow: hidden;
+}
+
 .jobs-card {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -3623,16 +3981,14 @@ main:has(#page-print-guide)::-webkit-scrollbar {
   .panel-right { grid-column: auto; }
 }
 
-/* Tall viewports: Print Guide above tip, both above Generate at the bottom.
-   Shorter viewports: tip + Generate only (Generate still bottom). */
+/* Tall viewports: Print Guide + workflow steps fill space below Generate. */
 @media (min-height: 780px) {
   #form-manual .guide-link-card {
     display: flex;
-    margin-top: auto;
   }
 
-  #form-manual .form-tip--compact {
-    margin-top: 0;
+  #form-manual .workflow-steps {
+    display: flex;
   }
 }
 

@@ -254,6 +254,12 @@
                   </div>
                 </div>
               </div>
+              <p class="form-tip form-tip--compact" id="manual-print-hint">
+                <span><strong>Tip:</strong> Generated PDFs are print-ready at <span id="manual-print-hint-size">2.25&Prime; &times; 3.25&Prime;</span> (includes bleed) and include the Allokit logo.</span>
+              </p>
+              <div class="form-actions">
+                <button type="submit" id="manual-submit">Generate</button>
+              </div>
               <a href="print-guide.html" class="guide-link-card" id="manual-print-guide-link">
                 <span class="guide-link-card__icon" aria-hidden="true">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -269,19 +275,64 @@
                   <polyline points="9 18 15 12 9 6"/>
                 </svg>
               </a>
-              <p class="form-tip form-tip--compact" id="manual-print-hint">
-                <span><strong>Tip:</strong> Generated PDFs are print-ready at <span id="manual-print-hint-size">2.25&Prime; &times; 3.25&Prime;</span> (includes bleed) and include the Allokit logo.</span>
-              </p>
-              <div class="form-actions">
-                <button type="submit" id="manual-submit">Generate</button>
+              <div class="workflow-steps">
+                <ol class="wf-list" aria-label="How it works">
+                  <li class="wf-step">
+                    <div class="wf-step__imgwrap">
+                      <img class="wf-step__img" src="../assets/step1.png" alt="">
+                      <img class="wf-step__arrow" src="../assets/arrow.png" alt="" aria-hidden="true">
+                    </div>
+                    <div class="wf-step__head">
+                      <span class="wf-step__num">1</span>
+                      <span class="wf-step__title">Enter Project</span>
+                    </div>
+                  </li>
+                  <li class="wf-step">
+                    <div class="wf-step__imgwrap">
+                      <img class="wf-step__img" src="../assets/step2.png" alt="">
+                      <img class="wf-step__arrow" src="../assets/arrow.png" alt="" aria-hidden="true">
+                    </div>
+                    <div class="wf-step__head">
+                      <span class="wf-step__num">2</span>
+                      <span class="wf-step__title">Generate PDF</span>
+                    </div>
+                  </li>
+                  <li class="wf-step">
+                    <div class="wf-step__imgwrap">
+                      <img class="wf-step__img" src="../assets/step3.png" alt="">
+                      <img class="wf-step__arrow" src="../assets/arrow.png" alt="" aria-hidden="true">
+                    </div>
+                    <div class="wf-step__head">
+                      <span class="wf-step__num">3</span>
+                      <span class="wf-step__title">Print Label</span>
+                    </div>
+                  </li>
+                  <li class="wf-step">
+                    <div class="wf-step__imgwrap">
+                      <img class="wf-step__img" src="../assets/step4.png" alt="">
+                    </div>
+                    <div class="wf-step__head">
+                      <span class="wf-step__num">4</span>
+                      <span class="wf-step__title">Scan On-Site</span>
+                    </div>
+                  </li>
+                </ol>
               </div>
             </div>
           </form>
 
           <form id="form-batch" class="mode-panel" aria-hidden="true">
-            <div class="form-card-head">
-              <h2>Batch CSV Upload</h2>
-              <p>Upload one or more CSV files with a URL column.</p>
+            <div class="form-card-head form-card-head--batch">
+              <div class="form-card-head__text">
+                <h2>Batch CSV Upload</h2>
+                <p>Upload one or more CSV files with a URL column.</p>
+              </div>
+              <div class="batch-size-control" id="batch-size-control">
+                <div class="size-toggle batch-size-toggle" id="batch-size-toggle" role="group" aria-label="Sticker size for this upload">
+                  <button type="button" id="batch-size-large" data-size="large" class="active" aria-pressed="true">Large</button>
+                  <button type="button" id="batch-size-small" data-size="small" aria-pressed="false">Small</button>
+                </div>
+              </div>
             </div>
 
             <div id="dropzone" tabindex="0">
@@ -311,7 +362,7 @@
             <div class="form-actions">
               <button type="submit" id="batch-submit" disabled>Start batch job</button>
             </div>
-            <p class="form-tip"><strong>Tip:</strong> Generated PDFs are print-ready at 2.25&Prime; &times; 3.25&Prime; (includes bleed) and include the Allokit logo.</p>
+            <p class="form-tip" id="batch-print-hint"><strong>Tip:</strong> Generated PDFs are print-ready at <span id="batch-print-hint-size">2.25&Prime; &times; 3.25&Prime;</span> (includes bleed) and include the Allokit logo.</p>
           </form>
 
         </div>
@@ -933,8 +984,19 @@
   const batchFileList  = document.getElementById('batch-file-list');
   const batchSubmitBtn = document.getElementById('batch-submit');
   const browseBtn      = document.getElementById('browse-btn');
+  const batchSizeToggle = document.getElementById('batch-size-toggle');
   const DROPZONE_DEFAULT_LABEL = 'Drop your CSV files here or click to browse — column: URL';
-  let selectedFiles = [];
+
+  /** Last universal size choice (never "custom"); new files inherit this. */
+  let batchGlobalSize = 'large';
+  /** @type {{ id: string, file: File, size: 'large'|'small' }[]} */
+  let selectedBatchItems = [];
+  /** Stagger timers for global → visible per-file cascade. */
+  let batchSizeCascadeTimers = [];
+  let batchSizeCascadeRemaining = 0;
+  let batchFileListScrollLocked = false;
+  let batchFileListLockedScrollTop = 0;
+  const BATCH_SIZE_CASCADE_MS = 40;
 
   dropzone.addEventListener('click', (e) => {
     if (e.target === browseBtn) return;
@@ -961,19 +1023,216 @@
     if (fileInput.files.length) handleFiles(fileInput.files);
   });
 
+  function normalizeBatchSize(sizeId) {
+    return sizeId === 'small' ? 'small' : 'large';
+  }
+
+  function isBatchSizeMixed() {
+    if (selectedBatchItems.length === 0) return false;
+    const first = selectedBatchItems[0].size;
+    return selectedBatchItems.some((item) => item.size !== first);
+  }
+
+  function updateBatchPrintHint() {
+    const tip = document.getElementById('batch-print-hint');
+    if (!tip) return;
+
+    if (selectedBatchItems.length === 0) {
+      tip.innerHTML = '<strong>Tip:</strong> Generated PDFs are print-ready (includes bleed) and include the Allokit logo. Choose a size after uploading files.';
+      return;
+    }
+
+    if (isBatchSizeMixed()) {
+      tip.innerHTML = '<strong>Tip:</strong> This batch uses <span id="batch-print-hint-size">mixed sizes</span> — each CSV keeps its own Large/Small setting.';
+      return;
+    }
+
+    const sizeId = selectedBatchItems[0].size;
+    const cfg = STICKER_SIZES[sizeId] || STICKER_SIZES.large;
+    tip.innerHTML = `<strong>Tip:</strong> Generated PDFs are print-ready at <span id="batch-print-hint-size">${cfg.tipSize}</span> (includes bleed) and include the Allokit logo.`;
+  }
+
+  function syncBatchSizeControl() {
+    const empty = selectedBatchItems.length === 0;
+    const mixed = isBatchSizeMixed();
+    const neutral = empty || mixed;
+
+    batchSizeToggle?.classList.toggle('is-neutral', neutral);
+    batchSizeToggle?.classList.toggle('is-idle', empty);
+    batchSizeToggle?.setAttribute(
+      'aria-label',
+      empty
+        ? 'Sticker size — upload files to choose Large or Small'
+        : mixed
+          ? 'Mixed sticker sizes — choose Large or Small to apply to all files'
+          : 'Sticker size for this upload',
+    );
+
+    batchSizeToggle?.querySelectorAll('button[data-size]').forEach((btn) => {
+      btn.disabled = empty;
+    });
+
+    if (neutral) {
+      batchSizeToggle?.classList.remove('is-small');
+      batchSizeToggle?.querySelectorAll('button[data-size]').forEach((btn) => {
+        btn.classList.remove('active');
+        btn.setAttribute('aria-pressed', 'false');
+      });
+    } else {
+      const sizeId = selectedBatchItems[0].size;
+      batchGlobalSize = normalizeBatchSize(sizeId);
+      batchSizeToggle?.classList.toggle('is-small', batchGlobalSize === 'small');
+      batchSizeToggle?.querySelectorAll('button[data-size]').forEach((btn) => {
+        const on = btn.dataset.size === batchGlobalSize;
+        btn.classList.toggle('active', on);
+        btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+      });
+    }
+
+    updateBatchPrintHint();
+  }
+
+  function cancelBatchSizeCascade() {
+    batchSizeCascadeTimers.forEach((timer) => clearTimeout(timer));
+    batchSizeCascadeTimers = [];
+    batchSizeCascadeRemaining = 0;
+    unlockBatchFileListScroll();
+  }
+
+  function snapBatchFileSizeToggles() {
+    selectedBatchItems.forEach((entry) => {
+      const toggle = batchFileList?.querySelector(`.batch-file-size[data-item-id="${CSS.escape(entry.id)}"]`);
+      applySizeToToggleEl(toggle, entry.size);
+    });
+  }
+
+  function isBatchFileToggleVisible(toggleEl) {
+    if (!toggleEl || !batchFileList) return false;
+    const listRect = batchFileList.getBoundingClientRect();
+    const row = toggleEl.closest('.batch-file-list-item') || toggleEl;
+    const rowRect = row.getBoundingClientRect();
+    return rowRect.bottom > listRect.top && rowRect.top < listRect.bottom;
+  }
+
+  function lockBatchFileListScroll() {
+    if (!batchFileList) return;
+    batchFileListLockedScrollTop = batchFileList.scrollTop;
+    batchFileListScrollLocked = true;
+  }
+
+  function unlockBatchFileListScroll() {
+    batchFileListScrollLocked = false;
+  }
+
+  function holdBatchFileListScroll() {
+    if (!batchFileListScrollLocked || !batchFileList) return;
+    if (batchFileList.scrollTop !== batchFileListLockedScrollTop) {
+      batchFileList.scrollTop = batchFileListLockedScrollTop;
+    }
+  }
+
+  function preventBatchFileListScroll(e) {
+    if (!batchFileListScrollLocked) return;
+    e.preventDefault();
+  }
+
+  function setBatchGlobalSize(sizeId) {
+    if (selectedBatchItems.length === 0) return;
+    cancelBatchSizeCascade();
+
+    batchGlobalSize = normalizeBatchSize(sizeId);
+    selectedBatchItems = selectedBatchItems.map((item) => ({
+      ...item,
+      size: batchGlobalSize,
+    }));
+    syncBatchSizeControl();
+
+    const toggles = Array.from(batchFileList?.querySelectorAll('.batch-file-size') || []);
+    const visible = toggles.filter((toggle) => isBatchFileToggleVisible(toggle));
+    const hidden = toggles.filter((toggle) => !isBatchFileToggleVisible(toggle));
+
+    // Off-screen rows jump immediately.
+    hidden.forEach((toggle) => applySizeToToggleEl(toggle, batchGlobalSize));
+
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduceMotion || visible.length === 0) {
+      visible.forEach((toggle) => applySizeToToggleEl(toggle, batchGlobalSize));
+      return;
+    }
+
+    lockBatchFileListScroll();
+    batchSizeCascadeRemaining = visible.length;
+    visible.forEach((toggle, index) => {
+      const timer = window.setTimeout(() => {
+        batchSizeCascadeTimers = batchSizeCascadeTimers.filter((id) => id !== timer);
+        applySizeToToggleEl(toggle, batchGlobalSize);
+        batchSizeCascadeRemaining -= 1;
+        if (batchSizeCascadeRemaining <= 0) {
+          batchSizeCascadeTimers = [];
+          unlockBatchFileListScroll();
+        }
+      }, (index + 1) * BATCH_SIZE_CASCADE_MS);
+      batchSizeCascadeTimers.push(timer);
+    });
+  }
+
+  function setBatchItemSize(itemId, sizeId) {
+    cancelBatchSizeCascade();
+    snapBatchFileSizeToggles();
+
+    const size = normalizeBatchSize(sizeId);
+    const item = selectedBatchItems.find((entry) => entry.id === itemId);
+    if (!item || item.size === size) {
+      syncBatchSizeControl();
+      return;
+    }
+    item.size = size;
+    const toggle = batchFileList?.querySelector(`.batch-file-size[data-item-id="${CSS.escape(itemId)}"]`);
+    applySizeToToggleEl(toggle, size);
+    syncBatchSizeControl();
+  }
+
+    function applySizeToToggleEl(toggleEl, sizeId) {
+    if (!toggleEl) return;
+    const size = normalizeBatchSize(sizeId);
+    const isSmall = size === 'small';
+    toggleEl.classList.toggle('is-small', isSmall);
+    toggleEl.querySelectorAll('button[data-size]').forEach((btn) => {
+      const on = btn.dataset.size === size;
+      btn.classList.toggle('active', on);
+      btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+  }
+
   function handleFiles(fileList) {
     const csvFiles = Array.from(fileList).filter((f) => f.name.toLowerCase().endsWith('.csv'));
     if (csvFiles.length === 0) {
       alert('Please select CSV file(s).');
       return;
     }
-    selectedFiles = csvFiles;
+    cancelBatchSizeCascade();
+    batchGlobalSize = 'large';
+    selectedBatchItems = csvFiles.map((file) => ({
+      id: crypto.randomUUID(),
+      file,
+      size: 'large',
+    }));
     renderBatchSelection();
     batchSubmitBtn.disabled = false;
   }
 
+  function renderBatchFileSizeToggle(item) {
+    const isSmall = item.size === 'small';
+    return `
+      <div class="size-toggle batch-file-size${isSmall ? ' is-small' : ''}" data-item-id="${item.id}" role="group" aria-label="Size for ${escapeHtml(item.file.name)}">
+        <button type="button" data-size="large" class="${isSmall ? '' : 'active'}" aria-pressed="${isSmall ? 'false' : 'true'}">Large</button>
+        <button type="button" data-size="small" class="${isSmall ? 'active' : ''}" aria-pressed="${isSmall ? 'true' : 'false'}">Small</button>
+      </div>
+    `;
+  }
+
   function renderBatchSelection() {
-    const count = selectedFiles.length;
+    const count = selectedBatchItems.length;
     const multi = count > 1;
 
     dropzone.classList.toggle('has-file', count > 0);
@@ -981,43 +1240,66 @@
       ? DROPZONE_DEFAULT_LABEL
       : multi
         ? `Selected: ${count} CSV files`
-        : `Selected: ${selectedFiles[0].name}`;
+        : `Selected: ${selectedBatchItems[0].file.name}`;
 
-    // Multiple files use their own filename; hide the shared name field.
     batchNameField.hidden = multi;
     batchNameInput.disabled = multi;
     if (!multi && count === 1) {
-      batchNameInput.value = selectedFiles[0].name.replace(/\.csv$/i, '');
+      batchNameInput.value = selectedBatchItems[0].file.name.replace(/\.csv$/i, '');
     }
 
-    if (multi) {
+    if (count > 0) {
       batchFileList.hidden = false;
-      batchFileList.innerHTML = selectedFiles
-        .map((f) => `<li class="batch-file-list-item"><span class="batch-file-list-name" title="${escapeHtml(f.name)}">${escapeHtml(f.name)}</span></li>`)
+      batchFileList.innerHTML = selectedBatchItems
+        .map((item) => `
+          <li class="batch-file-list-item" data-item-id="${item.id}">
+            <span class="batch-file-list-name" title="${escapeHtml(item.file.name)}">${escapeHtml(item.file.name)}</span>
+            ${renderBatchFileSizeToggle(item)}
+          </li>
+        `)
         .join('');
     } else {
       batchFileList.hidden = true;
       batchFileList.innerHTML = '';
     }
+
+    syncBatchSizeControl();
   }
 
   function resetBatchForm() {
-    selectedFiles = [];
+    cancelBatchSizeCascade();
+    selectedBatchItems = [];
     fileInput.value = '';
     batchNameInput.value = '';
     renderBatchSelection();
     batchSubmitBtn.disabled = true;
   }
 
-  async function submitSingleBatch(file) {
-    const name = batchNameInput.value.trim() || file.name.replace(/\.csv$/i, '');
+  batchSizeToggle?.querySelectorAll('button[data-size]').forEach((btn) => {
+    btn.addEventListener('click', () => setBatchGlobalSize(btn.dataset.size));
+  });
+
+    batchFileList?.addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-size]');
+    const toggle = e.target.closest('.batch-file-size');
+    if (!btn || !toggle) return;
+    setBatchItemSize(toggle.dataset.itemId, btn.dataset.size);
+  });
+
+  batchFileList?.addEventListener('scroll', holdBatchFileListScroll, { passive: true });
+  batchFileList?.addEventListener('wheel', preventBatchFileListScroll, { passive: false });
+  batchFileList?.addEventListener('touchmove', preventBatchFileListScroll, { passive: false });
+
+  async function submitSingleBatch(item) {
+    const name = batchNameInput.value.trim() || item.file.name.replace(/\.csv$/i, '');
 
     batchSubmitBtn.disabled = true;
     batchSubmitBtn.textContent = 'Starting…';
 
     const formData = new FormData();
     formData.append('name', name);
-    formData.append('file', file);
+    formData.append('file', item.file);
+    formData.append('size', item.size);
 
     try {
       const res = await allokitFetch('/jobs/batch', { method: 'POST', body: formData });
@@ -1037,17 +1319,20 @@
       alert(`Failed to start batch job: ${err.message}`);
     } finally {
       batchSubmitBtn.textContent = 'Start batch job';
-      batchSubmitBtn.disabled = selectedFiles.length === 0;
+      batchSubmitBtn.disabled = selectedBatchItems.length === 0;
     }
   }
 
-  async function submitMultipleBatch(files) {
+  async function submitMultipleBatch(items) {
     batchSubmitBtn.disabled = true;
-    batchSubmitBtn.textContent = `Queuing ${files.length} files…`;
+    batchSubmitBtn.textContent = `Queuing ${items.length} files…`;
 
     try {
-      // Enqueue via shared CSV upload queue (serialized, persisted).
-      await window.AllokitCsvQueue.enqueueFiles(files);
+      await window.AllokitCsvQueue.enqueueFiles(items.map((item) => ({
+        file: item.file,
+        size: item.size,
+        name: item.file.name.replace(/\.csv$/i, ''),
+      })));
       resetBatchForm();
       loadJobsQueue();
       loadStats();
@@ -1055,20 +1340,22 @@
       alert(`Failed to queue CSV files: ${err.message}`);
     } finally {
       batchSubmitBtn.textContent = 'Start batch job';
-      batchSubmitBtn.disabled = selectedFiles.length === 0;
+      batchSubmitBtn.disabled = selectedBatchItems.length === 0;
     }
   }
 
   formBatch.addEventListener('submit', async (e) => {
     e.preventDefault();
-    if (selectedFiles.length === 0) return;
+    if (selectedBatchItems.length === 0) return;
 
-    if (selectedFiles.length === 1) {
-      await submitSingleBatch(selectedFiles[0]);
+    if (selectedBatchItems.length === 1) {
+      await submitSingleBatch(selectedBatchItems[0]);
     } else {
-      await submitMultipleBatch(selectedFiles);
+      await submitMultipleBatch(selectedBatchItems);
     }
   });
+
+  syncBatchSizeControl();
 
   // Live queue panel (waiting jobs, poll sync, stack animation).
   const RECENT_QUEUE_LIMIT_MIN = 1;
