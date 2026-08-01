@@ -3522,12 +3522,17 @@ body.csv-size-modal-open {
 }
 
 #jobs-table td:nth-child(3),
-#jobs-table td:nth-child(7),
-#jobs-table td:nth-child(8) {
+#jobs-table td:nth-child(4),
+#jobs-table td:nth-child(8),
+#jobs-table td:nth-child(9) {
   overflow: visible;
 }
 
-#jobs-table td:nth-child(8) {
+#jobs-table th:nth-child(3),
+#jobs-table th:nth-child(4),
+#jobs-table td:nth-child(3),
+#jobs-table td:nth-child(4),
+#jobs-table td:nth-child(9) {
   text-align: center;
 }
 
@@ -3546,11 +3551,12 @@ body.csv-size-modal-open {
 }
 
 #jobs-table col.col-id       { width: 3.5rem; }
-#jobs-table col.col-name     { width: 24%; }
-#jobs-table col.col-type     { width: 5.5rem; }
-#jobs-table col.col-date     { width: 11rem; }
+#jobs-table col.col-name     { width: 22%; }
+#jobs-table col.col-type     { width: 5.25rem; }
+#jobs-table col.col-size     { width: 4.25rem; }
+#jobs-table col.col-date     { width: 10.5rem; }
 #jobs-table col.col-stickers { width: 4.5rem; }
-#jobs-table col.col-progress { width: 9.5rem; }
+#jobs-table col.col-progress { width: 9rem; }
 #jobs-table col.col-status   { width: 6.5rem; }
 #jobs-table col.col-download { width: 6.5rem; }
 
@@ -3625,6 +3631,23 @@ body.csv-size-modal-open {
   background: var(--blue-light);
   color: var(--blue);
   border-color: transparent;
+}
+
+.size-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.625rem;
+  height: 1.625rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  user-select: none;
+  background: var(--bg);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
 }
 
 .progress-cell {

@@ -156,6 +156,7 @@
               <col class="col-id">
               <col class="col-name">
               <col class="col-type">
+              <col class="col-size">
               <col class="col-date">
               <col class="col-stickers">
               <col class="col-progress">
@@ -167,6 +168,7 @@
                 <th>#</th>
                 <th>Project Name</th>
                 <th>Type</th>
+                <th>Size</th>
                 <th>Date</th>
                 <th>Stickers</th>
                 <th>Progress</th>
@@ -175,7 +177,7 @@
               </tr>
             </thead>
             <tbody id="jobs-tbody">
-              <tr><td colspan="8" class="table-empty">Loading…</td></tr>
+              <tr><td colspan="9" class="table-empty">Loading…</td></tr>
             </tbody>
           </table>
         </div>
@@ -528,7 +530,7 @@
       updateCancelAllBtn();
     } catch (err) {
       console.error('Failed to load jobs:', err);
-      tbody.innerHTML = '<tr><td colspan="8" class="table-empty">Failed to load jobs.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="9" class="table-empty">Failed to load jobs.</td></tr>';
     }
   }
 
@@ -556,7 +558,7 @@
     const filtered = AllokitSearch.filterJobs(jobs);
 
     if (jobs.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="8" class="table-empty">No jobs yet. Head to Generate to create your first sticker.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="9" class="table-empty">No jobs yet. Head to Generate to create your first sticker.</td></tr>';
       animateRowsIn();
       updateCancelAllBtn();
       focusNotificationJob();
@@ -564,7 +566,7 @@
     }
 
     if (filtered.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="8" class="table-empty table-empty-filtered">No jobs match your search.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="9" class="table-empty table-empty-filtered">No jobs match your search.</td></tr>';
       animateRowsIn();
       updateCancelAllBtn();
       focusNotificationJob();
@@ -635,21 +637,24 @@
       typeBadge.textContent = job.type === 'batch' ? 'Batch' : 'Single';
     }
 
-    tr.children[3].textContent = formatDate(job.created_at);
-    tr.children[4].textContent = formatNum(job.sticker_count);
+    const sizeMark = tr.children[3].querySelector('.size-mark');
+    if (sizeMark) syncSizeMark(sizeMark, job);
+
+    tr.children[4].textContent = formatDate(job.created_at);
+    tr.children[5].textContent = formatNum(job.sticker_count);
 
     const progressEl = tr.querySelector('.progress-bar');
     if (progressEl) {
       setProgressBar(progressEl, progressOpts.value, progressOpts);
     }
 
-    const statusBadge = tr.children[6].querySelector('.status-badge');
+    const statusBadge = tr.children[7].querySelector('.status-badge');
     if (statusBadge) {
       statusBadge.className = `status-badge status-badge--${job.status}`;
       statusBadge.textContent = statusLabel(job.status);
     }
 
-    updateDownloadCell(tr.children[7], job);
+    updateDownloadCell(tr.children[8], job);
   }
 
   function updateDownloadCell(td, job) {
@@ -701,6 +706,9 @@
     typeBadge.textContent = job.type === 'batch' ? 'Batch' : 'Single';
     tdType.appendChild(typeBadge);
 
+    const tdSize = document.createElement('td');
+    tdSize.appendChild(buildSizeMark(job));
+
     const tdDate = document.createElement('td');
     tdDate.textContent = formatDate(job.created_at);
 
@@ -723,7 +731,7 @@
     const tdDownload = document.createElement('td');
     fillDownloadCell(tdDownload, job);
 
-    tr.append(tdId, tdName, tdType, tdDate, tdCount, tdProgress, tdStatus, tdDownload);
+    tr.append(tdId, tdName, tdType, tdSize, tdDate, tdCount, tdProgress, tdStatus, tdDownload);
     return tr;
   }
 
@@ -1365,6 +1373,33 @@
 
   function formatNum(n) {
     return Number(n).toLocaleString();
+  }
+
+  function jobSizeId(job) {
+    return job && job.size === 'small' ? 'small' : 'large';
+  }
+
+  function sizeMarkMeta(sizeId) {
+    if (sizeId === 'small') {
+      return { letter: 'S', label: 'Small', title: 'Small · 1.25″ × 1.55″' };
+    }
+    return { letter: 'L', label: 'Large', title: 'Large · 2.25″ × 3.25″' };
+  }
+
+  function syncSizeMark(mark, job) {
+    const sizeId = jobSizeId(job);
+    const meta = sizeMarkMeta(sizeId);
+    mark.className = 'size-mark size-mark--' + sizeId;
+    mark.textContent = meta.letter;
+    mark.title = meta.title;
+    mark.setAttribute('aria-label', meta.label);
+  }
+
+  function buildSizeMark(job) {
+    const mark = document.createElement('span');
+    mark.setAttribute('role', 'img');
+    syncSizeMark(mark, job);
+    return mark;
   }
 
   function statusLabel(status) {

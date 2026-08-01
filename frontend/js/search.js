@@ -90,6 +90,7 @@
       String(job.id).includes(q) ||
       job.name.toLowerCase().includes(q) ||
       job.type.toLowerCase().includes(q) ||
+      String(job.size || 'large').toLowerCase().includes(q) ||
       job.status.toLowerCase().includes(q)
     );
   }
