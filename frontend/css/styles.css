@@ -3818,18 +3818,16 @@ body.csv-size-modal-open {
 /* ── Print Guide page ──────────────────────────────────────────────── */
 main:has(#page-print-guide) {
   padding-top: 0.625rem;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
-
-main:has(#page-print-guide)::-webkit-scrollbar {
-  display: none;
+  padding-bottom: 2rem;
+  overflow-y: auto;
 }
 
 #page-print-guide {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 1.5rem;
+  flex: 0 0 auto;
+  min-height: auto;
 }
 
 #page-print-guide .page-header {
@@ -3845,23 +3843,45 @@ main:has(#page-print-guide)::-webkit-scrollbar {
   box-shadow: var(--shadow);
 }
 
-.guide-specs-section {
+.guide-sizes-row {
   display: grid;
-  grid-template-columns: minmax(auto, 640px) 1fr;
-  gap: 2rem;
+  grid-template-columns: repeat(2, minmax(360px, 1fr));
+  grid-template-rows: minmax(22rem, auto) auto;
+  grid-auto-flow: column;
+  column-gap: clamp(1.25rem, 2.5vw, 2.5rem);
+  row-gap: 1.25rem;
+  width: 100%;
+  align-items: stretch;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 0.5rem;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-gutter: stable;
+}
+
+.guide-size-col {
+  display: contents;
+}
+
+.guide-sticker-preview {
+  display: flex;
   align-items: center;
-  flex: 0 0 auto;
+  justify-content: center;
+  padding: 1.5rem clamp(0.5rem, 2vw, 2rem);
+  background: transparent;
+  min-height: 22rem;
+  box-sizing: border-box;
+  width: 100%;
 }
 
 .guide-specs-card {
-  padding: 1.25rem 2rem;
-  align-self: stretch;
-  justify-self: start;
+  padding: 1.25rem clamp(1.25rem, 2vw, 1.75rem);
   width: 100%;
-  max-width: 640px;
+  height: 100%;
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
+  box-sizing: border-box;
 }
 
 .guide-specs-text h2,
@@ -3913,7 +3933,8 @@ main:has(#page-print-guide)::-webkit-scrollbar {
   font-weight: 600;
   color: var(--text);
   text-align: left;
-  white-space: nowrap;
+  white-space: normal;
+  line-height: 1.45;
 }
 
 .guide-spec-row dd.guide-spec-dd--wrap {
@@ -3976,14 +3997,6 @@ main:has(#page-print-guide)::-webkit-scrollbar {
   margin-right: 0.3rem;
 }
 
-.guide-sticker-preview {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 0 0 3rem;
-  background: transparent;
-}
-
 .guide-sticker-visual {
   display: inline-flex;
   flex-direction: column;
@@ -3996,13 +4009,20 @@ main:has(#page-print-guide)::-webkit-scrollbar {
 }
 
 .guide-sticker-frame {
-  width: 220px;
   border-radius: 10px;
   overflow: hidden;
   box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
   background: #fff;
   line-height: 0;
   flex-shrink: 0;
+}
+
+.guide-sticker-frame--large {
+  width: 220px;
+}
+
+.guide-sticker-frame--small {
+  width: 110px;
 }
 
 .guide-sticker-frame img {
@@ -4033,9 +4053,16 @@ main:has(#page-print-guide)::-webkit-scrollbar {
 }
 
 .guide-dim--width {
-  width: 220px;
   margin-top: 1rem;
   gap: 0;
+}
+
+.guide-dim--width-large {
+  width: 220px;
+}
+
+.guide-dim--width-small {
+  width: 110px;
 }
 
 .guide-dim--width .guide-dim-line {
@@ -4119,20 +4146,6 @@ main:has(#page-print-guide)::-webkit-scrollbar {
 }
 
 @media (max-width: 960px) {
-  .guide-specs-section {
-    grid-template-columns: 1fr;
-    gap: 1.5rem;
-    flex: 0 0 auto;
-  }
-
-  .guide-specs-card {
-    justify-content: flex-start;
-  }
-
-  .guide-sticker-preview {
-    order: -1;
-  }
-
   .guide-tips-grid {
     grid-template-columns: repeat(2, 1fr);
   }
@@ -4144,16 +4157,40 @@ main:has(#page-print-guide)::-webkit-scrollbar {
     padding: 1.25rem;
   }
 
+  .guide-sizes-row {
+    grid-template-columns: repeat(2, minmax(300px, 1fr));
+    grid-template-rows: minmax(16rem, auto) auto;
+    column-gap: 1rem;
+  }
+
   .guide-tips-grid {
     grid-template-columns: 1fr;
   }
 
-  .guide-sticker-frame {
+  .guide-sticker-preview {
+    min-height: 16rem;
+    padding: 1rem 0.5rem;
+  }
+
+  .guide-sticker-frame--large {
     width: 160px;
   }
 
-  .guide-dim--width {
+  .guide-sticker-frame--small {
+    width: 80px;
+  }
+
+  .guide-dim--width-large {
     width: 160px;
+  }
+
+  .guide-dim--width-small {
+    width: 80px;
+  }
+
+  .guide-spec-row {
+    grid-template-columns: minmax(120px, 9rem) 1fr;
+    gap: 0.75rem;
   }
 }
 
