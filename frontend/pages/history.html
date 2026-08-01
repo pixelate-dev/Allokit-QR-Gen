@@ -815,7 +815,10 @@
   }
 
   function downloadJobPdf(job, triggerEl) {
-    allokitDownloadJobPdf(job.id, job.name || 'sticker', triggerEl);
+    allokitDownloadJobPdf(job.id, job.name || 'sticker', triggerEl, {
+      size: job.size === 'small' ? 'small' : 'large',
+      date: job.completed_at || job.created_at || null,
+    });
   }
 
   function buildCancelButton(jobId) {
@@ -1291,11 +1294,17 @@
   async function confirmCsvSizeModal() {
     if (csvModalItems.length === 0) return;
 
-    const items = csvModalItems.map((item) => ({
-      file: item.file,
-      size: item.size,
-      name: item.file.name.replace(/\.csv$/i, ''),
-    }));
+    const items = csvModalItems.map((item) => {
+      const rawName = item.file.name.replace(/\.csv$/i, '');
+      const name = window.AllokitPrefs?.formatExportFilename
+        ? window.AllokitPrefs.formatExportFilename(rawName, { size: item.size })
+        : rawName;
+      return {
+        file: item.file,
+        size: item.size,
+        name,
+      };
+    });
 
     csvSizeModalConfirm.disabled = true;
     csvSizeModalConfirm.textContent = `Queuing ${items.length}…`;

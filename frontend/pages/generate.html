@@ -1133,7 +1133,9 @@
   manualDownload.addEventListener('click', (e) => {
     e.preventDefault();
     if (manualDownload.classList.contains('is-disabled') || !manualDownloadJobId) return;
-    allokitDownloadJobPdf(manualDownloadJobId, manualJobName || 'sticker', manualDownload);
+    allokitDownloadJobPdf(manualDownloadJobId, manualJobName || 'sticker', manualDownload, {
+      size: getManualSize(),
+    });
   });
 
   // Manual mode: POST /jobs/single, then SSE /jobs/{id}/progress
@@ -1553,7 +1555,10 @@
   batchFileList?.addEventListener('touchmove', preventBatchFileListScroll, { passive: false });
 
   async function submitSingleBatch(item) {
-    const name = batchNameInput.value.trim() || item.file.name.replace(/\.csv$/i, '');
+    const rawName = batchNameInput.value.trim() || item.file.name.replace(/\.csv$/i, '');
+    const name = window.AllokitPrefs?.formatExportFilename
+      ? window.AllokitPrefs.formatExportFilename(rawName, { size: item.size })
+      : rawName;
 
     batchSubmitBtn.disabled = true;
     batchSubmitBtn.textContent = 'Starting…';
@@ -1590,11 +1595,17 @@
     batchSubmitBtn.textContent = `Queuing ${items.length} files…`;
 
     try {
-      await window.AllokitCsvQueue.enqueueFiles(items.map((item) => ({
-        file: item.file,
-        size: item.size,
-        name: item.file.name.replace(/\.csv$/i, ''),
-      })));
+      await window.AllokitCsvQueue.enqueueFiles(items.map((item) => {
+        const rawName = item.file.name.replace(/\.csv$/i, '');
+        const name = window.AllokitPrefs?.formatExportFilename
+          ? window.AllokitPrefs.formatExportFilename(rawName, { size: item.size })
+          : rawName;
+        return {
+          file: item.file,
+          size: item.size,
+          name,
+        };
+      }));
       resetBatchForm();
       loadJobsQueue();
       loadStats();

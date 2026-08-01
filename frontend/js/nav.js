@@ -3,6 +3,7 @@
   const TRANSITION_KEY = 'pageTransition';
   const THEME_KEY = 'allokitTheme';
   const DEFAULT_SIZE_KEY = 'allokitDefaultSize';
+  const FILENAME_META_KEY = 'allokitFilenameMeta';
 
   function getStoredTheme() {
     try {
@@ -56,9 +57,66 @@
     return next;
   }
 
+  function getStoredFilenameMeta() {
+    try {
+      return localStorage.getItem(FILENAME_META_KEY);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function setStoredFilenameMeta(enabled) {
+    try {
+      localStorage.setItem(FILENAME_META_KEY, enabled ? '1' : '0');
+    } catch (_) {}
+  }
+
+  function getFilenameMetaEnabled() {
+    return getStoredFilenameMeta() === '1';
+  }
+
+  function setFilenameMetaEnabled(enabled) {
+    const next = Boolean(enabled);
+    setStoredFilenameMeta(next);
+    syncFilenameMetaToggle(next);
+    return next;
+  }
+
+  function formatDateStamp(value) {
+    const d = value ? new Date(value) : new Date();
+    if (Number.isNaN(d.getTime())) {
+      const now = new Date();
+      const y = now.getFullYear();
+      const m = String(now.getMonth() + 1).padStart(2, '0');
+      const day = String(now.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
+    }
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  }
+
+  function formatExportFilename(name, { size = null, date = null } = {}) {
+    let base = String(name || 'sticker').trim() || 'sticker';
+    base = base.replace(/\.pdf$/i, '');
+    if (!getFilenameMetaEnabled()) return base;
+    if (/_(?:small|large)_\d{4}-\d{2}-\d{2}$/i.test(base)) return base;
+
+    const parts = [base];
+    if (size === 'small' || size === 'large') {
+      parts.push(size);
+    }
+    parts.push(formatDateStamp(date));
+    return parts.join('_');
+  }
+
   window.AllokitPrefs = {
     getDefaultSize,
     setDefaultSize,
+    getFilenameMetaEnabled,
+    setFilenameMetaEnabled,
+    formatExportFilename,
   };
 
   function syncThemeToggle(theme) {
@@ -87,6 +145,18 @@
 
     const label = document.querySelector('[data-default-size-label]');
     if (label) label.textContent = next === 'small' ? 'Small' : 'Large';
+  }
+
+  function syncFilenameMetaToggle(enabled) {
+    const toggle = document.getElementById('filename-meta-toggle');
+    if (!toggle) return;
+
+    const on = Boolean(enabled);
+    toggle.setAttribute('aria-pressed', on ? 'true' : 'false');
+    toggle.classList.toggle('is-on', on);
+
+    const label = toggle.querySelector('[data-filename-meta-label]');
+    if (label) label.textContent = on ? 'On' : 'Off';
   }
 
   function commitTheme(theme) {
@@ -174,6 +244,16 @@
               <button type="button" data-size="small" aria-pressed="false">Small</button>
             </div>
           </div>
+
+          <button type="button" class="settings-pref-toggle" id="filename-meta-toggle" aria-pressed="false" aria-label="Add date and size to PDF filenames">
+            <span class="settings-pref-toggle__meta">
+              <span class="settings-pref-toggle__label">Add date &amp; size to filenames</span>
+              <span class="settings-pref-toggle__value" data-filename-meta-label>Off</span>
+            </span>
+            <span class="theme-toggle-switch" aria-hidden="true">
+              <span class="theme-toggle-knob"></span>
+            </span>
+          </button>
         </div>
       </div>
     `;
@@ -188,12 +268,14 @@
     const modal = ensureSettingsModal();
     const themeToggle = document.getElementById('theme-toggle');
     const sizeToggle = document.getElementById('settings-size-toggle');
+    const filenameMetaToggle = document.getElementById('filename-meta-toggle');
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     let closing = false;
     let lastFocus = null;
 
     syncThemeToggle(getTheme());
     syncDefaultSizeToggle(getDefaultSize());
+    syncFilenameMetaToggle(getFilenameMetaEnabled());
 
     function setOpenState(isOpen) {
       if (openBtn) openBtn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
@@ -271,6 +353,10 @@
       btn.addEventListener('click', () => {
         setDefaultSize(btn.dataset.size);
       });
+    });
+
+    filenameMetaToggle?.addEventListener('click', () => {
+      setFilenameMetaEnabled(!getFilenameMetaEnabled());
     });
   }
 

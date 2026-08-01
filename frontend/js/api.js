@@ -24,7 +24,7 @@
     return fetch(url, { ...opts, headers: allokitApiHeaders(opts.headers) });
   };
 
-  window.allokitDownloadJobPdf = async function allokitDownloadJobPdf(jobId, filename, triggerEl) {
+  window.allokitDownloadJobPdf = async function allokitDownloadJobPdf(jobId, filename, triggerEl, meta) {
     if (triggerEl && triggerEl.classList.contains('is-loading')) return;
 
     const isSmall = triggerEl && triggerEl.classList.contains('btn-download-sm');
@@ -57,7 +57,10 @@
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `${filename || 'sticker'}.pdf`;
+      const exportName = window.AllokitPrefs?.formatExportFilename
+        ? window.AllokitPrefs.formatExportFilename(filename || 'sticker', meta || {})
+        : (filename || 'sticker');
+      link.download = `${exportName}.pdf`;
       document.body.appendChild(link);
       link.click();
       link.remove();
