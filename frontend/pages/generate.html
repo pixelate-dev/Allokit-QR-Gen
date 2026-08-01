@@ -12,6 +12,15 @@
 <link rel="stylesheet" href="../css/styles.css">
 <script>
   try {
+    const theme = localStorage.getItem('allokitTheme');
+    if (theme === 'dark' || theme === 'light') {
+      document.documentElement.setAttribute('data-theme', theme);
+    }
+    const defaultSize = localStorage.getItem('allokitDefaultSize');
+    document.documentElement.setAttribute(
+      'data-default-size',
+      defaultSize === 'small' ? 'small' : 'large'
+    );
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const nav = performance.getEntriesByType('navigation')[0];
     const isReload = nav && nav.type === 'reload';
@@ -35,7 +44,8 @@
   <nav id="sidebar">
     <div class="sidebar-brand">
       <div class="logo">
-        <img src="../assets/Logo_web.svg" alt="Allokit" width="100" height="20">
+        <img class="logo-img logo-img--light" src="../assets/Logo_web.svg" alt="Allokit" width="100" height="20">
+        <img class="logo-img logo-img--dark" src="../assets/Logo_web_dark.svg" alt="" width="100" height="20" aria-hidden="true">
       </div>
     </div>
 
@@ -83,16 +93,23 @@
     </div>
 
     <div class="nav-bottom">
-      <div class="user-card">
-        <div class="user-avatar" aria-hidden="true">MA</div>
-        <div class="user-meta">
-          <span class="user-name">Marc Andre</span>
-          <span class="user-role">Admin</span>
-        </div>
-        <svg class="user-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-          <polyline points="6 9 12 15 18 9"/>
-        </svg>
-      </div>
+      <button type="button" class="settings-card" id="settings-open" aria-haspopup="dialog" aria-expanded="false" aria-controls="settings-modal">
+        <span class="settings-card-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg>
+        </span>
+        <span class="settings-card-meta">
+          <span class="settings-card-label">Settings</span>
+          <span class="settings-card-value">Preferences</span>
+        </span>
+        <span class="settings-card-chevron" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="9 18 15 12 9 6"/>
+          </svg>
+        </span>
+      </button>
     </div>
   </nav>
 
@@ -254,6 +271,29 @@
               <p class="form-tip form-tip--compact" id="manual-print-hint">
                 <span><strong>Tip:</strong> PDFs print at <span id="manual-print-hint-size">2.25&Prime; &times; 3.25&Prime;</span> (includes bleed) with the Allokit logo.</span>
               </p>
+              <script>
+                (function () {
+                  try {
+                    if (localStorage.getItem('allokitDefaultSize') !== 'small') return;
+                    const toggle = document.getElementById('manual-size-toggle');
+                    if (!toggle) return;
+                    toggle.classList.add('is-small');
+                    toggle.querySelectorAll('button[data-size]').forEach((btn) => {
+                      const on = btn.dataset.size === 'small';
+                      btn.classList.toggle('active', on);
+                      btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+                    });
+                    const title = document.getElementById('manual-size-meta-title');
+                    const detail = document.getElementById('manual-size-meta-detail');
+                    const mini = document.getElementById('manual-size-mini');
+                    const tip = document.getElementById('manual-print-hint-size');
+                    if (title) title.textContent = 'Small';
+                    if (detail) detail.innerHTML = '1.25&Prime; &times; 1.55&Prime; bleed &rarr; 1&Prime; &times; 1.3&Prime; trim';
+                    if (tip) tip.innerHTML = '1.25&Prime; &times; 1.55&Prime;';
+                    mini?.classList.add('is-small');
+                  } catch (_) {}
+                })();
+              </script>
               <div class="form-actions">
                 <button type="submit" id="manual-submit">Generate</button>
               </div>
@@ -276,8 +316,10 @@
                 <ol class="wf-list" aria-label="How it works">
                   <li class="wf-step">
                     <div class="wf-step__imgwrap">
-                      <img class="wf-step__img" src="../assets/step1.png" alt="">
-                      <img class="wf-step__arrow" src="../assets/arrow.png" alt="" aria-hidden="true">
+                      <img class="wf-step__img wf-step__img--light" src="../assets/light-theme/step1.png" alt="">
+                      <img class="wf-step__img wf-step__img--dark" src="../assets/dark-theme/step1.png" alt="" aria-hidden="true">
+                      <img class="wf-step__arrow wf-step__arrow--light" src="../assets/light-theme/arrow.png" alt="" aria-hidden="true">
+                      <img class="wf-step__arrow wf-step__arrow--dark" src="../assets/dark-theme/arrow.png" alt="" aria-hidden="true">
                     </div>
                     <div class="wf-step__head">
                       <span class="wf-step__num">1</span>
@@ -286,8 +328,10 @@
                   </li>
                   <li class="wf-step">
                     <div class="wf-step__imgwrap">
-                      <img class="wf-step__img" src="../assets/step2.png" alt="">
-                      <img class="wf-step__arrow" src="../assets/arrow.png" alt="" aria-hidden="true">
+                      <img class="wf-step__img wf-step__img--light" src="../assets/light-theme/step2.png" alt="">
+                      <img class="wf-step__img wf-step__img--dark" src="../assets/dark-theme/step2.png" alt="" aria-hidden="true">
+                      <img class="wf-step__arrow wf-step__arrow--light" src="../assets/light-theme/arrow.png" alt="" aria-hidden="true">
+                      <img class="wf-step__arrow wf-step__arrow--dark" src="../assets/dark-theme/arrow.png" alt="" aria-hidden="true">
                     </div>
                     <div class="wf-step__head">
                       <span class="wf-step__num">2</span>
@@ -296,8 +340,10 @@
                   </li>
                   <li class="wf-step">
                     <div class="wf-step__imgwrap">
-                      <img class="wf-step__img" src="../assets/step3.png" alt="">
-                      <img class="wf-step__arrow" src="../assets/arrow.png" alt="" aria-hidden="true">
+                      <img class="wf-step__img wf-step__img--light" src="../assets/light-theme/step3.png" alt="">
+                      <img class="wf-step__img wf-step__img--dark" src="../assets/dark-theme/step3.png" alt="" aria-hidden="true">
+                      <img class="wf-step__arrow wf-step__arrow--light" src="../assets/light-theme/arrow.png" alt="" aria-hidden="true">
+                      <img class="wf-step__arrow wf-step__arrow--dark" src="../assets/dark-theme/arrow.png" alt="" aria-hidden="true">
                     </div>
                     <div class="wf-step__head">
                       <span class="wf-step__num">3</span>
@@ -306,7 +352,8 @@
                   </li>
                   <li class="wf-step">
                     <div class="wf-step__imgwrap">
-                      <img class="wf-step__img" src="../assets/step4.png" alt="">
+                      <img class="wf-step__img wf-step__img--light" src="../assets/light-theme/step4.png" alt="">
+                      <img class="wf-step__img wf-step__img--dark" src="../assets/dark-theme/step4.png" alt="" aria-hidden="true">
                     </div>
                     <div class="wf-step__head">
                       <span class="wf-step__num">4</span>
@@ -329,6 +376,21 @@
                   <button type="button" id="batch-size-large" data-size="large" class="active" aria-pressed="true">Large</button>
                   <button type="button" id="batch-size-small" data-size="small" aria-pressed="false">Small</button>
                 </div>
+                <script>
+                  (function () {
+                    try {
+                      if (localStorage.getItem('allokitDefaultSize') !== 'small') return;
+                      const toggle = document.getElementById('batch-size-toggle');
+                      if (!toggle) return;
+                      toggle.classList.add('is-small');
+                      toggle.querySelectorAll('button[data-size]').forEach((btn) => {
+                        const on = btn.dataset.size === 'small';
+                        btn.classList.toggle('active', on);
+                        btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+                      });
+                    } catch (_) {}
+                  })();
+                </script>
               </div>
             </div>
 
@@ -471,6 +533,7 @@
   const previewShellBg    = stickerPlaceholder?.querySelector('.preview-shell-bg');
 
   // Trim sizes shown in the preview frame; export includes bleed.
+  // Corner radii from Print Guide specs: Large 3mm, Small 1.5mm.
   const STICKER_SIZES = {
     large: {
       exportW: 2.25, exportH: 3.25, trimW: 2, trimH: 3,
@@ -478,6 +541,7 @@
       tipSize: '2.25″ × 3.25″',
       label: 'Large',
       detail: '2.25″ × 3.25″ bleed → 2″ × 3″ trim',
+      cornerMm: 3,
     },
     small: {
       exportW: 1.25, exportH: 1.55, trimW: 1, trimH: 1.3,
@@ -485,6 +549,7 @@
       tipSize: '1.25″ × 1.55″',
       label: 'Small',
       detail: '1.25″ × 1.55″ bleed → 1″ × 1.3″ trim',
+      cornerMm: 1.5,
     },
   };
 
@@ -522,31 +587,120 @@
     tipSize.textContent = cfg.tipSize;
   }
 
+  function expectedStickerWidth(cfg) {
+    const stage = document.querySelector('#preview-manual .preview-stage');
+    if (!stage || !cfg) return 0;
+    const { width: w, height: h } = stage.getBoundingClientRect();
+    if (!w || !h) return 0;
+    // Match CSS: min(88cqw, 100cqh * trimW / trimH) against .preview-body container.
+    return Math.min(0.88 * w, h * cfg.trimW / cfg.trimH);
+  }
+
+  function syncPreviewCornerRadius(el, cfg, widthOverride) {
+    if (!el || !cfg) return;
+    let width = widthOverride || 0;
+    if (!width) width = el.hidden ? 0 : el.getBoundingClientRect().width;
+    if (!width) width = expectedStickerWidth(cfg);
+    if (!width) return;
+    const radiusPx = width * (cfg.cornerMm / 25.4) / cfg.trimW;
+    const next = `${radiusPx.toFixed(2)}px`;
+    if (el.style.getPropertyValue('--preview-corner') === next) return;
+    el.style.setProperty('--preview-corner', next);
+  }
+
+  function lockPreviewFrame(el, cfg) {
+    if (!el || !cfg) return;
+    const w = expectedStickerWidth(cfg);
+    if (!w) return;
+    el.style.width = `${w.toFixed(2)}px`;
+    el.style.height = `${(w * cfg.trimH / cfg.trimW).toFixed(2)}px`;
+    el.style.maxWidth = 'none';
+    el.style.maxHeight = 'none';
+    el.style.aspectRatio = 'unset';
+    syncPreviewCornerRadius(el, cfg, w);
+  }
+
+  function clearPreviewFrameLock(el) {
+    if (!el) return;
+    el.style.width = '';
+    el.style.height = '';
+    el.style.maxWidth = '';
+    el.style.maxHeight = '';
+    el.style.aspectRatio = '';
+  }
+
   function applyStickerSizePreview(sizeId) {
     const cfg = STICKER_SIZES[sizeId] || STICKER_SIZES.large;
+    const isSmall = sizeId === 'small';
     [stickerPlaceholder, stickerResult].forEach((el) => {
       if (!el) return;
+      el.classList.toggle('is-small', isSmall);
       el.style.setProperty('--preview-ar-w', String(cfg.trimW));
       el.style.setProperty('--preview-ar-h', String(cfg.trimH));
       el.style.setProperty('--sticker-export-w', String(cfg.exportW));
       el.style.setProperty('--sticker-export-h', String(cfg.exportH));
       el.style.setProperty('--sticker-trim-w', String(cfg.trimW));
       el.style.setProperty('--sticker-trim-h', String(cfg.trimH));
+      syncPreviewCornerRadius(el, cfg);
     });
     if (previewShellBg && previewShellBg.getAttribute('data') !== cfg.template) {
       previewShellBg.setAttribute('data', cfg.template);
     }
   }
 
-  let manualSelectedSize = 'large';
+  let cornerObsPaused = false;
+  if (typeof ResizeObserver === 'function') {
+    const cornerResizeObs = new ResizeObserver(() => {
+      if (cornerObsPaused) return;
+      const sizeId = stickerResult && !stickerResult.hidden
+        ? (stickerResult.classList.contains('is-small') ? 'small' : 'large')
+        : (stickerPlaceholder?.classList.contains('is-small') ? 'small' : 'large');
+      const cfg = STICKER_SIZES[sizeId] || STICKER_SIZES.large;
+      if (stickerResult && !stickerResult.hidden) {
+        lockPreviewFrame(stickerResult, cfg);
+      } else if (stickerPlaceholder && !stickerPlaceholder.hidden) {
+        clearPreviewFrameLock(stickerPlaceholder);
+        syncPreviewCornerRadius(stickerPlaceholder, cfg);
+      }
+    });
+    if (stickerPlaceholder) cornerResizeObs.observe(stickerPlaceholder);
+    if (stickerResult) cornerResizeObs.observe(stickerResult);
+  }
+
+  function loadStickerObject(url) {
+    return new Promise((resolve) => {
+      let settled = false;
+      const finish = () => {
+        if (settled) return;
+        settled = true;
+        stickerSvgObject.removeEventListener('load', finish);
+        stickerSvgObject.removeEventListener('error', finish);
+        resolve();
+      };
+      stickerSvgObject.addEventListener('load', finish);
+      stickerSvgObject.addEventListener('error', finish);
+      stickerSvgObject.data = url;
+      // Fallback when the browser skips firing load for an already-ready object.
+      window.setTimeout(finish, 250);
+    });
+  }
+
+  let manualSelectedSize = window.AllokitPrefs?.getDefaultSize?.() || 'large';
   document.getElementById('manual-size-toggle')?.querySelectorAll('button[data-size]').forEach((btn) => {
     btn.addEventListener('click', () => setManualSize(btn.dataset.size));
   });
 
-  // Preview frame stays large until Generate; then locks to that job's size
-  // until the next Generate (size toggle alone does not resize the preview).
-  applyStickerSizePreview('large');
-  setManualSize('large');
+  // Preview frame stays on the preferred default until Generate; then locks to that
+  // job's size until the next Generate (size toggle alone does not resize preview).
+  applyStickerSizePreview(manualSelectedSize);
+  setManualSize(manualSelectedSize);
+
+  // Enable size-toggle transitions only after the saved default is applied.
+  requestAnimationFrame(() => {
+    document.getElementById('manual-size-toggle')?.classList.add('is-ready');
+    document.getElementById('manual-size-mini')?.classList.add('is-ready');
+    document.getElementById('batch-size-toggle')?.classList.add('is-ready');
+  });
 
   // Progressive footer extras + short-screen density:
   // fit 1/2/3 = size only / +Print Guide / +steps
@@ -896,6 +1050,8 @@
   function resetManualPreview() {
     stickerPlaceholder.hidden = false;
     stickerResult.hidden = true;
+    clearPreviewFrameLock(stickerResult);
+    clearPreviewFrameLock(stickerPlaceholder);
     stickerSvgObject.data = '';
     if (stickerSvgObject.dataset.blobUrl) {
       URL.revokeObjectURL(stickerSvgObject.dataset.blobUrl);
@@ -904,7 +1060,6 @@
     previewLiveBadge.hidden = true;
     previewFailedBadge.hidden = true;
     resetManualPreviewShell();
-    manualLoading.hidden = true;
     setManualStatus('', false);
     manualDownloadJobId = null;
     manualDownload.classList.add('is-disabled');
@@ -945,30 +1100,49 @@
     manualCancelBtn.disabled = false;
   });
 
-  function showSvgPreview(jobId) {
-    stickerPlaceholder.hidden = true;
-    stickerResult.hidden = false;
-    previewLiveBadge.hidden = false;
-    setManualStatus('', false);
-    manualLoading.hidden = true;
+  async function showSvgPreview(jobId) {
+    const sizeId = stickerResult?.classList.contains('is-small') ? 'small' : 'large';
+    const cfg = STICKER_SIZES[sizeId] || STICKER_SIZES.large;
+    const progressEl = document.getElementById('manual-progress');
+    const stage = document.querySelector('#preview-manual .preview-stage');
 
-    const url = `${API_BASE}/jobs/${jobId}/preview.svg?_=${Date.now()}`;
-    fetch(url)
-      .then(async (res) => {
-        if (!res.ok) throw new Error(await res.text());
-        return res.blob();
-      })
-      .then(blob => {
-        if (stickerSvgObject.dataset.blobUrl) {
-          URL.revokeObjectURL(stickerSvgObject.dataset.blobUrl);
-        }
-        const blobUrl = URL.createObjectURL(blob);
-        stickerSvgObject.dataset.blobUrl = blobUrl;
-        stickerSvgObject.data = blobUrl;
-      })
-      .catch((err) => {
-        showManualFailed(err.message || 'Preview could not be loaded.');
-      });
+    // Keep the loading cover up until the new SVG is ready and layout has settled.
+    cornerObsPaused = true;
+    manualLoading.hidden = false;
+
+    try {
+      const url = `${API_BASE}/jobs/${jobId}/preview.svg?_=${Date.now()}`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(await res.text());
+      const blob = await res.blob();
+
+      if (stickerSvgObject.dataset.blobUrl) {
+        URL.revokeObjectURL(stickerSvgObject.dataset.blobUrl);
+      }
+      const blobUrl = URL.createObjectURL(blob);
+      stickerSvgObject.dataset.blobUrl = blobUrl;
+
+      // Collapse chrome under the overlay so stage size is final before reveal.
+      progressEl.hidden = true;
+      setManualStatus('', false);
+      manualCancelBtn.hidden = true;
+      applyStickerSizePreview(sizeId);
+      void stage?.offsetHeight;
+      lockPreviewFrame(stickerResult, cfg);
+
+      // Show the frame under the overlay (objects often won't load while [hidden]).
+      stickerPlaceholder.hidden = true;
+      stickerResult.hidden = false;
+      previewLiveBadge.hidden = false;
+      await loadStickerObject(blobUrl);
+      void stickerResult.offsetHeight;
+
+      manualLoading.hidden = true;
+    } catch (err) {
+      showManualFailed(err.message || 'Preview could not be loaded.');
+    } finally {
+      cornerObsPaused = false;
+    }
   }
 
   let manualDownloadJobId = null;
@@ -1024,13 +1198,14 @@
     const progressEl = document.getElementById('manual-progress');
     const submitBtn  = document.getElementById('manual-submit');
 
-    applyStickerSizePreview(size);
+    // Cover the stage first so size swaps and chrome collapse stay invisible.
+    manualLoading.hidden = false;
     resetManualPreview();
+    applyStickerSizePreview(size);
     manualJobId = null;
     setManualStatus('Starting…', true);
     progressEl.hidden = false;
     setProgressBar(progressEl, 0, { active: true });
-    manualLoading.hidden = false;
     submitBtn.disabled = true;
 
     try {
@@ -1085,7 +1260,6 @@
       } else if (data.status === 'ready') {
         manualJobId = null;
         manualCancelBtn.hidden = true;
-        progressEl.hidden = true;
         showSvgPreview(jobId);
         enableDownload(jobId);
         submitBtn.disabled = false;
@@ -1134,7 +1308,7 @@
   const DROPZONE_DEFAULT_LABEL = 'Drop your CSV files here or click to browse (column: URL)';
 
   /** Last universal size choice (never "custom"); new files inherit this. */
-  let batchGlobalSize = 'large';
+  let batchGlobalSize = window.AllokitPrefs?.getDefaultSize?.() || 'large';
   /** @type {{ id: string, file: File, size: 'large'|'small' }[]} */
   let selectedBatchItems = [];
   /** Stagger timers for the global -> per-file size cascade. */
@@ -1357,11 +1531,12 @@
       return;
     }
     cancelBatchSizeCascade();
-    batchGlobalSize = 'large';
+    const defaultSize = window.AllokitPrefs?.getDefaultSize?.() || 'large';
+    batchGlobalSize = defaultSize;
     selectedBatchItems = csvFiles.map((file) => ({
       id: crypto.randomUUID(),
       file,
-      size: 'large',
+      size: defaultSize,
     }));
     renderBatchSelection();
     batchSubmitBtn.disabled = false;
@@ -1502,6 +1677,15 @@
   });
 
   syncBatchSizeControl();
+
+  window.addEventListener('allokit-default-size-change', (e) => {
+    const next = e.detail?.size === 'small' ? 'small' : 'large';
+    setManualSize(next);
+    if (selectedBatchItems.length === 0) {
+      batchGlobalSize = next;
+      syncBatchSizeControl();
+    }
+  });
 
   // Live queue panel (waiting jobs, poll sync, stack animation).
   const RECENT_QUEUE_LIMIT_MIN = 1;

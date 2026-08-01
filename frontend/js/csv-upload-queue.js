@@ -209,6 +209,7 @@
   }
 
   async function enqueueFiles(files) {
+    const preferredSize = window.AllokitPrefs?.getDefaultSize?.() || 'large';
     const entries = Array.from(files || []).map((entry) => {
       if (entry && entry.file instanceof File) {
         return {
@@ -220,7 +221,7 @@
       if (entry instanceof File) {
         return {
           file: entry,
-          size: 'large',
+          size: preferredSize,
           name: entry.name.replace(/\.csv$/i, ''),
         };
       }
