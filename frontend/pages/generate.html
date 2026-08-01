@@ -460,9 +460,6 @@
                 </div>
               </div>
             </div>
-            <p id="manual-status" class="preview-hint preview-hint--hidden" hidden></p>
-            <div id="manual-progress" hidden aria-hidden="true"></div>
-            <button type="button" id="manual-cancel" class="btn-cancel" hidden>Cancel job</button>
             <a id="manual-download" class="btn-download is-disabled" href="#" tabindex="-1" aria-disabled="true">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
@@ -525,8 +522,6 @@
   const manualDownload  = document.getElementById('manual-download');
   const previewLiveBadge = document.getElementById('preview-live-badge');
   const previewFailedBadge = document.getElementById('preview-failed-badge');
-  const manualStatus    = document.getElementById('manual-status');
-  const manualCancelBtn = document.getElementById('manual-cancel');
   const manualUrlControl  = document.getElementById('manual-url-control');
   const manualUrlError    = document.getElementById('manual-url-error');
   const manualUrlErrorText = document.getElementById('manual-url-error-text');
@@ -998,13 +993,6 @@
     return Number(n).toLocaleString();
   }
 
-  function setManualStatus(text, visible, { isError = false } = {}) {
-    manualStatus.textContent = text;
-    manualStatus.hidden = !visible;
-    manualStatus.classList.toggle('preview-hint--hidden', !visible);
-    manualStatus.classList.toggle('preview-hint--error', visible && isError);
-  }
-
   function formatJobError(error) {
     if (!error) return 'Generation failed.';
     const lines = String(error).trim().split('\n').map((line) => line.trim()).filter(Boolean);
@@ -1043,13 +1031,12 @@
     if (hint) hint.textContent = message;
     if (label) label.textContent = 'Generation failed';
     stickerPlaceholder.classList.add('preview-shell--failed');
-
-    setManualStatus(message, true, { isError: true });
   }
 
   function resetManualPreview() {
     stickerPlaceholder.hidden = false;
     stickerResult.hidden = true;
+    stickerResult.classList.remove('is-entering', 'is-appeared');
     clearPreviewFrameLock(stickerResult);
     clearPreviewFrameLock(stickerPlaceholder);
     stickerSvgObject.data = '';
@@ -1060,13 +1047,11 @@
     previewLiveBadge.hidden = true;
     previewFailedBadge.hidden = true;
     resetManualPreviewShell();
-    setManualStatus('', false);
     manualDownloadJobId = null;
     manualDownload.classList.add('is-disabled');
     manualDownload.href = '#';
     manualDownload.setAttribute('aria-disabled', 'true');
     manualDownload.tabIndex = -1;
-    manualCancelBtn.hidden = true;
   }
 
   async function requestJobCancel(jobId) {
@@ -1093,17 +1078,9 @@
     }
   }
 
-  manualCancelBtn.addEventListener('click', async () => {
-    if (!manualJobId) return;
-    manualCancelBtn.disabled = true;
-    await cancelJob(manualJobId);
-    manualCancelBtn.disabled = false;
-  });
-
   async function showSvgPreview(jobId) {
     const sizeId = stickerResult?.classList.contains('is-small') ? 'small' : 'large';
     const cfg = STICKER_SIZES[sizeId] || STICKER_SIZES.large;
-    const progressEl = document.getElementById('manual-progress');
     const stage = document.querySelector('#preview-manual .preview-stage');
 
     // Keep the loading cover up until the new SVG is ready and layout has settled.
@@ -1122,15 +1099,13 @@
       const blobUrl = URL.createObjectURL(blob);
       stickerSvgObject.dataset.blobUrl = blobUrl;
 
-      // Collapse chrome under the overlay so stage size is final before reveal.
-      progressEl.hidden = true;
-      setManualStatus('', false);
-      manualCancelBtn.hidden = true;
       applyStickerSizePreview(sizeId);
       void stage?.offsetHeight;
       lockPreviewFrame(stickerResult, cfg);
 
-      // Show the frame under the overlay (objects often won't load while [hidden]).
+      // Appear without fade while evaluating look (re-enable transition later).
+      stickerResult.classList.remove('is-entering');
+      stickerResult.classList.add('is-appeared');
       stickerPlaceholder.hidden = true;
       stickerResult.hidden = false;
       previewLiveBadge.hidden = false;
@@ -1163,7 +1138,6 @@
 
   // Manual mode: POST /jobs/single, then SSE /jobs/{id}/progress
   let manualEventSource = null;
-  let manualJobId = null;
   let manualJobName = '';
 
   function notifyManualJob(jobId, status, { error = null, completedAt = null } = {}) {
@@ -1194,18 +1168,12 @@
 
     manualJobName = name;
 
-    const statusEl   = manualStatus;
-    const progressEl = document.getElementById('manual-progress');
     const submitBtn  = document.getElementById('manual-submit');
 
-    // Cover the stage first so size swaps and chrome collapse stay invisible.
+    // Cover the stage first so size swaps stay invisible.
     manualLoading.hidden = false;
     resetManualPreview();
     applyStickerSizePreview(size);
-    manualJobId = null;
-    setManualStatus('Starting…', true);
-    progressEl.hidden = false;
-    setProgressBar(progressEl, 0, { active: true });
     submitBtn.disabled = true;
 
     try {
@@ -1223,9 +1191,7 @@
       window.AllokitNotifications?.ingestJobUpdate(job);
       watchManualJob(job.id);
     } catch (err) {
-      setManualStatus(`Failed to start job: ${err.message}`, true);
-      progressEl.hidden = true;
-      manualLoading.hidden = true;
+      showManualFailed(err.message || 'Failed to start job.');
       submitBtn.disabled = false;
     }
   });
@@ -1233,12 +1199,7 @@
   function watchManualJob(jobId) {
     if (manualEventSource) manualEventSource.close();
 
-    manualJobId = jobId;
-    const statusEl   = manualStatus;
-    const progressEl = document.getElementById('manual-progress');
     const submitBtn  = document.getElementById('manual-submit');
-
-    manualCancelBtn.hidden = false;
 
     manualEventSource = new EventSource(`${API_BASE}/jobs/${jobId}/progress`);
 
@@ -1247,38 +1208,21 @@
       notifyManualJob(jobId, data.status, { error: data.error, completedAt: data.completed_at });
 
       if (data.status === 'generating' || data.status === 'waiting') {
-        setProgressBar(progressEl, data.progress, { active: true });
-        setManualStatus(
-          data.status === 'waiting'
-            ? 'Queued: waiting for the current job to finish…'
-            : `Generating… ${data.progress}%`,
-          true
-        );
         manualLoading.hidden = false;
-        const canCancel = data.status === 'waiting' || data.status === 'generating';
-        manualCancelBtn.hidden = !canCancel;
       } else if (data.status === 'ready') {
-        manualJobId = null;
-        manualCancelBtn.hidden = true;
         showSvgPreview(jobId);
         enableDownload(jobId);
         submitBtn.disabled = false;
         manualEventSource.close();
         loadStats();
       } else if (data.status === 'cancelled') {
-        manualJobId = null;
-        manualCancelBtn.hidden = true;
-        setManualStatus('Job cancelled.', true);
-        progressEl.hidden = true;
+        resetManualPreview();
         manualLoading.hidden = true;
         submitBtn.disabled = false;
         manualEventSource.close();
         loadStats();
       } else if (data.status === 'failed') {
-        manualJobId = null;
-        manualCancelBtn.hidden = true;
         showManualFailed(data.error);
-        progressEl.hidden = true;
         submitBtn.disabled = false;
         manualEventSource.close();
         loadStats();
@@ -1286,10 +1230,7 @@
     };
 
     manualEventSource.onerror = () => {
-      manualJobId = null;
-      manualCancelBtn.hidden = true;
-      setManualStatus('Lost connection to job progress. Refresh to check status.', true);
-      manualLoading.hidden = true;
+      showManualFailed('Lost connection to job progress. Refresh to check status.');
       submitBtn.disabled = false;
       manualEventSource.close();
     };
@@ -2671,7 +2612,6 @@
 
   // Init
   setMode('manual', { animate: false });
-  setProgressBar(document.getElementById('manual-progress'), 0);
   setProgressBar(document.getElementById('batch-progress'), 0);
   resetManualPreview();
   refreshRecentQueueLimit({ reload: false });
