@@ -35,20 +35,20 @@
 
     return segments.map(([start, end]) => {
       if (start === end) return `${hash}${start}`;
-      return `${hash}${start}–${hash}${end}`;
+      return `${hash}${start}-${hash}${end}`;
     }).join(', ');
   }
 
-  /** Notification copy: "Job #500" or "#500–502, #504, #506–509" */
+  /** Notification copy: "Job #500" or "#500-502, #504, #506-509" */
   function formatJobRef(jobIds) {
     const sorted = normalizeJobIds(jobIds);
     if (sorted.length === 0) return '';
     if (sorted.length === 1) return `Job #${sorted[0]}`;
-    if (isContiguous(sorted)) return `Jobs #${sorted[0]}–${sorted[sorted.length - 1]}`;
+    if (isContiguous(sorted)) return `Jobs #${sorted[0]}-${sorted[sorted.length - 1]}`;
     return formatSegmentList(sorted, { hashPrefix: true });
   }
 
-  /** Search field label: "500" or "500–502, 504, 506–509" */
+  /** Search field label: "500" or "500-502, 504, 506-509" */
   function formatSearchLabel(jobIds) {
     const sorted = normalizeJobIds(jobIds);
     if (sorted.length === 0) return '';

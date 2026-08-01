@@ -36,7 +36,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Allokit QR Generator", lifespan=lifespan)
 
 
-# ── Auth ──────────────────────────────────────────────────────────────────
+# Auth
 # Set ALLOKIT_API_KEY to require an X-API-Key header on mutating requests.
 # Unset = no auth (local development).
 API_KEY = os.environ.get("ALLOKIT_API_KEY")
@@ -47,7 +47,7 @@ def require_api_key(x_api_key: Optional[str] = Header(default=None)):
         raise HTTPException(401, "Missing or invalid API key")
 
 
-# ── CORS ──────────────────────────────────────────────────────────────────
+# CORS
 # Comma-separated allowed origins, or * (default).
 _cors_env = os.environ.get("ALLOKIT_CORS_ORIGINS", "*")
 origins = ["*"] if _cors_env.strip() == "*" else [o.strip() for o in _cors_env.split(",")]
@@ -290,7 +290,7 @@ async def job_progress(job_id: int):
     )
 
 
-# ── Frontend (same origin as API in production) ───────────────────────────
+# Frontend (same origin as API in production)
 @app.get("/config.js")
 def client_config():
     """Runtime config for the static UI (API base + optional demo API key)."""

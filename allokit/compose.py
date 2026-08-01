@@ -43,10 +43,10 @@ def _template_unit_scale(template):
 
 
 def _blank_template(template):
-    """Return the template's outer ``<svg …></svg>`` shell with the artwork
-    stripped out — same viewBox/size attributes, no inner paint.
+    """Outer ``<svg …></svg>`` shell with artwork removed.
+    Keeps viewBox/size attrs, no inner paint.
 
-    Used by the batch path to build logo-only pages without duplicating template art.
+    Batch path uses this for logo-only pages without duplicating template art.
     """
     m = re.search(r'<svg[^>]*>', template)
     if not m:
@@ -144,7 +144,7 @@ def svg_to_pdf(svg_string, output_pdf, palette=None):
     try:
         drawing = svg_file_to_drawing(tmp.name, palette=palette)
         if drawing is None:
-            raise ValueError("svglib could not parse the SVG — enable save_svg=True and inspect it")
+            raise ValueError("svglib could not parse the SVG; enable save_svg=True and inspect it")
         drawing_to_pdf(drawing, output_pdf)
     finally:
         os.unlink(tmp.name)
@@ -173,22 +173,22 @@ def compose_and_export(
     if output_svg is None:
         output_svg = str(job_dir / "output.svg")
 
-    # ── 1. Generate QR ────────────────────────────────────────────────────
+    # 1. Generate QR
     qr_svg = generate_qr_svg(qr_data, str(job_dir / "qr_output.svg"),
                               module_size, quiet_zone, logo_path)
 
-    # ── 2. Read template, build composed SVG ──────────────────────────────
+    # 2. Read template, build composed SVG
     with open(template_path, 'r', encoding='utf-8') as f:
         template = f.read()
 
     composed = _build_composed_svg(qr_svg, template, x, y, width, height)
 
-    # ── 3. Optionally save composed SVG ───────────────────────────────────
+    # 3. Optionally save composed SVG
     if save_svg:
         with open(output_svg, 'w', encoding='utf-8') as f:
             f.write(composed)
 
-    # ── 4. Export PDF ──────────────────────────────────────────────────────
+    # 4. Export PDF
     svg_to_pdf(composed, output_pdf)
 
 

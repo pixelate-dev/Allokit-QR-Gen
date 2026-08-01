@@ -4,7 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
-<title>Allokit QR Generator — Generate</title>
+<title>Allokit QR Generator - Generate</title>
+<script src="../js/cache-refresh.js?v=2026-08-01"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=optional" rel="stylesheet">
@@ -23,15 +24,14 @@
 <body>
 
 <!--
-  Local dev: open pages/*.html directly (API at localhost:8000) or visit
-  http://localhost:8000/pages/generate.html when the server is running.
+  Local: open pages/*.html (API on localhost:8000), or hit
+  http://localhost:8000/pages/generate.html with the server running.
 -->
 <script src="/config.js"></script>
 <script src="../js/api.js"></script>
 
 <div id="app">
 
-  <!-- ============ APP SHELL: SIDEBAR ============ -->
   <nav id="sidebar">
     <div class="sidebar-brand">
       <div class="logo">
@@ -114,7 +114,6 @@
     </div>
   </header>
 
-  <!-- ============ PAGE 1: GENERATE ============ -->
   <main>
     <section id="page-generate" data-dense="0">
 
@@ -129,7 +128,6 @@
         </div>
       </div>
 
-      <!-- ---- Stat cards (live from GET /stats) ---- -->
       <div class="stats">
         <div class="stat-card stat-card--primary">
           <div class="stat-card-header">
@@ -141,7 +139,7 @@
               </svg>
             </span>
           </div>
-          <strong id="stat-total">—</strong>
+          <strong id="stat-total">-</strong>
           <span class="stat-card-sub" id="stat-total-sub">stickers all time</span>
         </div>
         <div class="stat-card">
@@ -153,8 +151,8 @@
               </svg>
             </span>
           </div>
-          <strong id="stat-month">—</strong>
-          <span class="stat-card-sub" id="stat-month-sub">—</span>
+          <strong id="stat-month">-</strong>
+          <span class="stat-card-sub" id="stat-month-sub">-</span>
         </div>
         <div class="stat-card">
           <div class="stat-card-header">
@@ -166,7 +164,7 @@
               </svg>
             </span>
           </div>
-          <strong id="stat-batch">—</strong>
+          <strong id="stat-batch">-</strong>
           <span class="stat-card-sub">CSV uploads</span>
         </div>
         <div class="stat-card">
@@ -178,14 +176,13 @@
               </svg>
             </span>
           </div>
-          <strong id="stat-queued">—</strong>
+          <strong id="stat-queued">-</strong>
           <span class="stat-card-sub">waiting to start</span>
         </div>
       </div>
 
       <div class="panels">
 
-        <!-- ---- LEFT PANEL ---- -->
         <div class="panel-left">
 
           <!-- Manual mode form -->
@@ -201,7 +198,7 @@
                   <svg class="field-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
                     <path d="M4 7h16M4 7v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/>
                   </svg>
-                  <input type="text" id="manual-name" placeholder="e.g. Site A — Gate 3" required>
+                  <input type="text" id="manual-name" placeholder="e.g. Site A / Gate 3" required>
                 </div>
               </label>
               <label class="field" for="manual-url">
@@ -234,7 +231,7 @@
                     </div>
                     <div class="size-field__meta" id="manual-size-meta" aria-live="polite">
                       <span class="size-field__meta-title" id="manual-size-meta-title">Large</span>
-                      <span class="size-field__meta-detail" id="manual-size-meta-detail">2.25&Prime; &times; 3.25&Prime; bleed &rarr; 2&Prime; &times; 3&Prime; trim</span>
+                      <span class="size-field__meta-detail" id="manual-size-meta-detail">2.25&Prime; &times; 3.25&Prime; bleed to 2&Prime; &times; 3&Prime; trim</span>
                     </div>
                   </div>
                   <div class="size-mini" id="manual-size-mini" aria-hidden="true">
@@ -255,7 +252,7 @@
                 </div>
               </div>
               <p class="form-tip form-tip--compact" id="manual-print-hint">
-                <span><strong>Tip:</strong> Generated PDFs are print-ready at <span id="manual-print-hint-size">2.25&Prime; &times; 3.25&Prime;</span> (includes bleed) and include the Allokit logo.</span>
+                <span><strong>Tip:</strong> PDFs print at <span id="manual-print-hint-size">2.25&Prime; &times; 3.25&Prime;</span> (includes bleed) with the Allokit logo.</span>
               </p>
               <div class="form-actions">
                 <button type="submit" id="manual-submit">Generate</button>
@@ -342,7 +339,7 @@
                   <polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
                 </svg>
               </div>
-              <span id="dropzone-label">Drop your CSV files here or click to browse — column: URL</span>
+              <span id="dropzone-label">Drop your CSV files here or click to browse (column: URL)</span>
               <button type="button" class="btn-browse" id="browse-btn">Browse files</button>
               <input type="file" id="batch-file" accept=".csv" multiple hidden>
             </div>
@@ -362,12 +359,11 @@
             <div class="form-actions">
               <button type="submit" id="batch-submit" disabled>Start batch job</button>
             </div>
-            <p class="form-tip" id="batch-print-hint"><strong>Tip:</strong> Generated PDFs are print-ready at <span id="batch-print-hint-size">2.25&Prime; &times; 3.25&Prime;</span> (includes bleed) and include the Allokit logo.</p>
+            <p class="form-tip" id="batch-print-hint"><strong>Tip:</strong> PDFs print at <span id="batch-print-hint-size">2.25&Prime; &times; 3.25&Prime;</span> (includes bleed) with the Allokit logo.</p>
           </form>
 
         </div>
 
-        <!-- ---- RIGHT PANEL ---- -->
         <div class="panel-right">
 
           <!-- Manual mode: single preview -->
@@ -450,9 +446,7 @@
 <script src="../js/notifications.js?v=3"></script>
 <script src="../js/csv-upload-queue.js"></script>
 <script>
-  // ===================================================================
   // Mode toggle
-  // ===================================================================
   const modeManualBtn = document.getElementById('mode-manual-btn');
   const modeBatchBtn  = document.getElementById('mode-batch-btn');
   const modeToggle    = document.getElementById('mode-toggle');
@@ -556,7 +550,7 @@
 
   // Progressive footer extras + short-screen density:
   // fit 1/2/3 = size only / +Print Guide / +steps
-  // dense 1–5 = page chrome → tip → form subtitle → compact paddings → last-resort stats compact
+  // dense 1-5 = page chrome -> tip -> form subtitle -> compact paddings -> last-resort stats compact
   // Stat cards keep original design (with subtitles) until dense 5.
   // Size meta + mini sticker stay visible (they sit beside the toggle, not below it).
   (function initManualFooterFit() {
@@ -630,7 +624,7 @@
         void form.offsetHeight;
       }
 
-      // Extremely short viewports: scroll the page and show the full priority stack
+      // Short viewports: scroll the page and show the full priority stack
       // (size toggle + Print Guide + steps) like the largest-screen layout.
       if (!coreFits()) {
         app.dataset.pageScroll = '1';
@@ -666,7 +660,7 @@
       form.dataset.footerFit = fit;
       void form.offsetHeight;
 
-      // Only fill a small awkward gap — never inflate stats instead of showing extras.
+      // Only fill a small awkward gap; never inflate stats instead of showing extras.
       let boost = 0;
       if (fit === '1') {
         boost = Math.min(
@@ -829,9 +823,7 @@
   modeManualBtn.addEventListener('click', () => setMode('manual'));
   modeBatchBtn.addEventListener('click',  () => setMode('batch'));
 
-  // ===================================================================
-  // Stat cards — GET /stats
-  // ===================================================================
+  // Stat cards (GET /stats)
   async function loadStats() {
     try {
       const res = await fetch(`${API_BASE}/stats`);
@@ -995,9 +987,7 @@
     allokitDownloadJobPdf(manualDownloadJobId, manualJobName || 'sticker', manualDownload);
   });
 
-  // ===================================================================
-  // Manual mode — POST /jobs/single, then watch via SSE /jobs/{id}/progress
-  // ===================================================================
+  // Manual mode: POST /jobs/single, then SSE /jobs/{id}/progress
   let manualEventSource = null;
   let manualJobId = null;
   let manualJobName = '';
@@ -1085,7 +1075,7 @@
         setProgressBar(progressEl, data.progress, { active: true });
         setManualStatus(
           data.status === 'waiting'
-            ? 'Queued — waiting for the current job to finish…'
+            ? 'Queued: waiting for the current job to finish…'
             : `Generating… ${data.progress}%`,
           true
         );
@@ -1124,16 +1114,14 @@
     manualEventSource.onerror = () => {
       manualJobId = null;
       manualCancelBtn.hidden = true;
-      setManualStatus('Lost connection to job progress — refresh to check status.', true);
+      setManualStatus('Lost connection to job progress. Refresh to check status.', true);
       manualLoading.hidden = true;
       submitBtn.disabled = false;
       manualEventSource.close();
     };
   }
 
-  // ===================================================================
-  // CSV Batch mode — dropzone + POST /jobs/batch
-  // ===================================================================
+  // CSV batch: dropzone + POST /jobs/batch
   const dropzone       = document.getElementById('dropzone');
   const dropzoneLabel  = document.getElementById('dropzone-label');
   const fileInput      = document.getElementById('batch-file');
@@ -1143,13 +1131,13 @@
   const batchSubmitBtn = document.getElementById('batch-submit');
   const browseBtn      = document.getElementById('browse-btn');
   const batchSizeToggle = document.getElementById('batch-size-toggle');
-  const DROPZONE_DEFAULT_LABEL = 'Drop your CSV files here or click to browse — column: URL';
+  const DROPZONE_DEFAULT_LABEL = 'Drop your CSV files here or click to browse (column: URL)';
 
   /** Last universal size choice (never "custom"); new files inherit this. */
   let batchGlobalSize = 'large';
   /** @type {{ id: string, file: File, size: 'large'|'small' }[]} */
   let selectedBatchItems = [];
-  /** Stagger timers for global → visible per-file cascade. */
+  /** Stagger timers for the global -> per-file size cascade. */
   let batchSizeCascadeTimers = [];
   let batchSizeCascadeRemaining = 0;
   let batchFileListScrollLocked = false;
@@ -1196,18 +1184,18 @@
     if (!tip) return;
 
     if (selectedBatchItems.length === 0) {
-      tip.innerHTML = '<strong>Tip:</strong> Generated PDFs are print-ready (includes bleed) and include the Allokit logo. Choose a size after uploading files.';
+      tip.innerHTML = '<strong>Tip:</strong> PDFs print with bleed and the Allokit logo. Choose a size after uploading files.';
       return;
     }
 
     if (isBatchSizeMixed()) {
-      tip.innerHTML = '<strong>Tip:</strong> This batch uses <span id="batch-print-hint-size">mixed sizes</span> — each CSV keeps its own Large/Small setting.';
+      tip.innerHTML = '<strong>Tip:</strong> This batch uses <span id="batch-print-hint-size">mixed sizes</span>; each CSV keeps its own Large/Small setting.';
       return;
     }
 
     const sizeId = selectedBatchItems[0].size;
     const cfg = STICKER_SIZES[sizeId] || STICKER_SIZES.large;
-    tip.innerHTML = `<strong>Tip:</strong> Generated PDFs are print-ready at <span id="batch-print-hint-size">${cfg.tipSize}</span> (includes bleed) and include the Allokit logo.`;
+    tip.innerHTML = `<strong>Tip:</strong> PDFs print at <span id="batch-print-hint-size">${cfg.tipSize}</span> (includes bleed) with the Allokit logo.`;
   }
 
   function syncBatchSizeControl() {
@@ -1220,9 +1208,9 @@
     batchSizeToggle?.setAttribute(
       'aria-label',
       empty
-        ? 'Sticker size — upload files to choose Large or Small'
+        ? 'Sticker size: upload files to choose Large or Small'
         : mixed
-          ? 'Mixed sticker sizes — choose Large or Small to apply to all files'
+          ? 'Mixed sticker sizes: choose Large or Small to apply to all files'
           : 'Sticker size for this upload',
     );
 
@@ -1529,7 +1517,7 @@
   let lastWaitingCount = 0;
   /** Jobs submitted this session not yet confirmed in GET /jobs waiting list. */
   const pendingSubmitJobs = new Map();
-  /** In-flight queue cancels — ignore duplicate clicks for the same job. */
+  /** In-flight queue cancels; ignore duplicate clicks for the same job. */
   const cancellingQueueJobIds = new Set();
   /** Locally cancelled; hidden until server confirms terminal status. */
   const pendingCancelIds = new Set();
@@ -2497,9 +2485,7 @@
     return div.innerHTML;
   }
 
-  // ===================================================================
   // Init
-  // ===================================================================
   setMode('manual', { animate: false });
   setProgressBar(document.getElementById('manual-progress'), 0);
   setProgressBar(document.getElementById('batch-progress'), 0);

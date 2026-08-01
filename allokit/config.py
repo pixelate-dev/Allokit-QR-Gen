@@ -38,7 +38,7 @@ class StickerSize:
     qr_y: float
     qr_width: float
     qr_height: float
-    # Physical artboard inches (with bleed) — for docs / preview crop.
+    # Physical artboard inches (with bleed); used by docs / preview crop.
     export_w_in: float
     export_h_in: float
     trim_w_in: float
@@ -74,7 +74,7 @@ STICKER_SIZES: dict[str, StickerSize] = {
     ),
 }
 
-# Back-compat alias — default / large template.
+# Back-compat alias for the default/large template.
 TEMPLATE_PATH = STICKER_SIZES["large"].template_path
 
 

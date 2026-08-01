@@ -113,7 +113,7 @@
         </svg>
       </div>
       <h1 id="mobile-gate-title" class="mobile-gate-title">Please open on desktop</h1>
-      <p class="mobile-gate-text">Allokit's QR generator is designed for larger screens. Open this page on a desktop or laptop for the best experience.</p>
+      <p class="mobile-gate-text">This tool needs a larger screen. Open it on a desktop or laptop.</p>
     `;
     document.body.appendChild(gate);
   }

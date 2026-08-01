@@ -22,7 +22,7 @@ function setProgressBar(el, percent, { active = false, cancelled = false } = {})
       track.setAttribute('aria-valuenow', '0');
       track.setAttribute('aria-valuetext', 'Cancelled');
     }
-    if (pct) pct.textContent = '—';
+    if (pct) pct.textContent = '-';
     el.classList.remove('is-active', 'is-complete');
     el.classList.add('is-cancelled');
     return;
@@ -51,7 +51,7 @@ function buildProgressBar(percent, { active = false, cancelled = false } = {}) {
       <div class="progress-bar__track" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" aria-valuetext="Cancelled">
         <div class="progress-bar__fill"></div>
       </div>
-      <span class="progress-bar__pct">—</span>`;
+      <span class="progress-bar__pct">-</span>`;
     return wrap;
   }
 

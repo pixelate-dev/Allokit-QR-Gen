@@ -141,7 +141,7 @@
     }
     const sorted = [...jobIds].sort((a, b) => a - b);
     if (sorted.length === 1) return `Job #${sorted[0]}`;
-    return `Jobs #${sorted[0]}–${sorted[sorted.length - 1]}`;
+    return `Jobs #${sorted[0]}-${sorted[sorted.length - 1]}`;
   }
 
   function formatGroupedStatusMessage(kind, jobIds) {

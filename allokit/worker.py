@@ -23,7 +23,7 @@ from allokit.validation import URL_RULE_MESSAGE, is_valid_url
 
 _queue = queue.Queue()
 
-# Default (large) QR placement — kept for any callers that still import these.
+# Default (large) QR placement; kept for callers that still import these.
 _large = get_sticker_size("large")
 QR_X, QR_Y              = _large.qr_x, _large.qr_y
 QR_WIDTH, QR_HEIGHT     = _large.qr_width, _large.qr_height

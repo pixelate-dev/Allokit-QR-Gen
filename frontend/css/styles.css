@@ -71,7 +71,7 @@ body {
   height: 100vh;
 }
 
-/* ── Sidebar ───────────────────────────────────────────────────────── */
+/* Sidebar */
 #sidebar {
   grid-area: sidebar;
   background: var(--surface);
@@ -215,7 +215,7 @@ body {
   flex-shrink: 0;
 }
 
-/* ── Topbar ────────────────────────────────────────────────────────── */
+/* Topbar */
 #topbar {
   grid-area: topbar;
   background: var(--surface);
@@ -762,7 +762,7 @@ body.notifications-error-modal-open {
   box-shadow: inset 3px 0 0 var(--blue);
 }
 
-/* ── Main content ──────────────────────────────────────────────────── */
+/* Main content */
 main {
   grid-area: main;
   padding: 1.25rem 1.75rem 1.5rem;
@@ -866,7 +866,7 @@ main.is-exiting {
   color: var(--text);
 }
 
-/* ── Stat cards ────────────────────────────────────────────────────── */
+/* Stat cards */
 .stats {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -999,7 +999,7 @@ main.is-exiting {
 .stat-card-sub.positive { color: var(--green); }
 .stat-card--primary .stat-card-sub.positive { color: #86efac; }
 
-/* ── Panels layout ─────────────────────────────────────────────────── */
+/* Panels layout */
 .panels {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -1130,7 +1130,7 @@ main.is-exiting {
   flex-shrink: 0;
 }
 
-/* ── Forms ─────────────────────────────────────────────────────────── */
+/* Forms */
 .form-card-head {
   margin-bottom: 0.875rem;
 }
@@ -1178,7 +1178,7 @@ main.is-exiting {
   font-size: 0.8rem;
 }
 
-/* Mixed sizes: keep the pill, clear selection — no blue thumb. */
+/* Mixed sizes: keep the pill, clear selection; no blue thumb. */
 .batch-size-toggle.is-neutral {
   background: var(--subtle-blue-gradient);
   border-color: rgba(25, 113, 242, 0.18);
@@ -1497,7 +1497,7 @@ main.is-exiting {
   gap: 0.65rem;
 }
 
-/* Last resort only — compact the stats themselves. */
+/* Last resort only: compact the stats themselves. */
 #page-generate[data-dense="5"] .stats {
   gap: 0.65rem;
   margin-bottom: 0.7rem;
@@ -1527,7 +1527,7 @@ main.is-exiting {
   display: none;
 }
 
-/* Extremely short viewports: unlock the shell and scroll the whole page. */
+/* Short viewports: unlock the shell and scroll the whole page. */
 #app[data-page-scroll="1"] {
   height: auto;
   min-height: 100vh;
@@ -2254,7 +2254,7 @@ main.is-exiting {
   cursor: not-allowed;
 }
 
-/* ── Progress bar ──────────────────────────────────────────────────── */
+/* Progress bar */
 .progress-bar {
   display: flex;
   align-items: center;
@@ -2364,7 +2364,7 @@ main.is-exiting {
   100% { transform: translateX(220%); }
 }
 
-/* ── Preview panel (manual) ────────────────────────────────────────── */
+/* Preview panel (manual) */
 .preview-header {
   display: flex;
   align-items: center;
@@ -2716,7 +2716,7 @@ main.is-exiting {
 
 .btn-download svg { width: 18px; height: 18px; }
 
-/* ── Batch queue panel ─────────────────────────────────────────────── */
+/* Batch queue panel */
 .batch-status {
   display: flex;
   flex-direction: column;
@@ -2996,7 +2996,7 @@ main.is-exiting {
   }
 }
 
-/* ── History page ──────────────────────────────────────────────────── */
+/* History page */
 @keyframes history-slide-in {
   from {
     opacity: 0;
@@ -3815,7 +3815,7 @@ body.csv-size-modal-open {
 
 .table-empty-filtered { color: var(--text-secondary); }
 
-/* ── Print Guide page ──────────────────────────────────────────────── */
+/* Print Guide page */
 main:has(#page-print-guide) {
   padding-top: 0.625rem;
   padding-bottom: 2rem;
@@ -4194,7 +4194,7 @@ main:has(#page-print-guide) {
   }
 }
 
-/* ── Mobile gate ───────────────────────────────────────────────────── */
+/* Mobile gate */
 #mobile-gate {
   display: none;
 }
@@ -4253,7 +4253,7 @@ main:has(#page-print-guide) {
   }
 }
 
-/* ── Responsive ────────────────────────────────────────────────────── */
+/* Responsive */
 @media (max-width: 1200px) {
   .stats { grid-template-columns: repeat(2, 1fr); }
   .panels { grid-template-columns: 1fr; }
