@@ -10,7 +10,7 @@
  * - Remembers completion in localStorage so the same system skips next time
  */
 (function () {
-  const CACHE_VERSION = '2026-08-01';
+  const CACHE_VERSION = '2026-08-03';
   const DONE_KEY = 'allokitCacheVersion';
   const RELOADING_KEY = 'allokitCacheReloading';
 
