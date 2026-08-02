@@ -94,6 +94,15 @@
     syncThemeToggle(theme);
   }
 
+  // Safari/iPad View Transition snapshots often omit backdrop-filter.
+  function needsSolidScrimForThemeVt() {
+    const ua = navigator.userAgent || '';
+    if (/iPad|iPhone|iPod/.test(ua)) return true;
+    // iPadOS 13+ can report as MacIntel with touch
+    if (navigator.platform === 'MacIntel' && (navigator.maxTouchPoints || 0) > 1) return true;
+    return /Safari/.test(ua) && !/Chrome|Chromium|Edg|OPR|Firefox/i.test(ua);
+  }
+
   function applyTheme(theme, { animate = false } = {}) {
     const next = theme === 'dark' ? 'dark' : 'light';
     const root = document.documentElement;
@@ -105,22 +114,33 @@
       return;
     }
 
-    // View Transitions snapshot the page; iPad/Safari often drops
-    // backdrop-filter in those snapshots, so the settings scrim blur
-    // vanishes mid-theme-switch and only returns after. Keep the live
-    // modal DOM when a blurred overlay is open.
-    const modalOpen = document.body.classList.contains('settings-modal-open');
+    // Prefer View Transitions for a true crossfade (gradients/images included).
+    if (typeof document.startViewTransition === 'function') {
+      const modal = document.getElementById('settings-modal');
+      const modalOpen = document.body.classList.contains('settings-modal-open');
+      const useSolidScrim = Boolean(
+        modal && modalOpen && needsSolidScrimForThemeVt()
+      );
 
-    if (typeof document.startViewTransition === 'function' && !modalOpen) {
+      // On WebKit, swap the live blur for a dense solid scrim before the
+      // snapshot so the overlay stays continuous through the crossfade.
+      // Chrome keeps backdrop-filter in VT snapshots, so leave it alone.
+      if (useSolidScrim) {
+        modal.classList.add('settings-modal--solid-scrim');
+        void modal.offsetWidth;
+      }
+
       const transition = document.startViewTransition(() => {
         commitTheme(next);
       });
-      transition.finished.catch(() => {});
+      const cleanup = () => {
+        modal?.classList.remove('settings-modal--solid-scrim');
+      };
+      transition.finished.then(cleanup, cleanup);
       return;
     }
 
-    // Fallback / modal-open path: CSS property transitions while
-    // `.theme-transition` is active (modal backdrop excluded in CSS).
+    // Fallback: CSS property transitions while `.theme-transition` is active.
     root.classList.add('theme-transition');
     commitTheme(next);
     window.setTimeout(() => {
