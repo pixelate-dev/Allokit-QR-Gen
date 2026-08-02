@@ -1391,7 +1391,8 @@ main.is-exiting {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
-  min-height: calc(var(--stat-card-base-min) + var(--stats-boost, 0px));
+  /* --stats-boost may be negative to reclaim height for footer steps. */
+  min-height: max(0px, calc(var(--stat-card-base-min) + var(--stats-boost, 0px)));
   position: relative;
   overflow: hidden;
 }
@@ -1947,7 +1948,7 @@ main.is-exiting {
 /* Short-screen density (set by JS on #page-generate):
    1 = light page chrome only (keep original stat cards + subtitles),
    2 = hide tip, 3 = hide form subtitle, 4 = compact size row,
-   5 = last resort: compact stats. */
+   5 = last resort: compact stats to the design floor (never paper-thin). */
 #page-generate[data-dense="1"] .page-header,
 #page-generate[data-dense="2"] .page-header,
 #page-generate[data-dense="3"] .page-header,
@@ -2022,34 +2023,37 @@ main.is-exiting {
   gap: 0.65rem;
 }
 
-/* Last resort only: compact the stats themselves. */
+/* Dense 5: compact stats but respect the design floor (never paper-thin). */
 #page-generate[data-dense="5"] .stats {
-  gap: 0.65rem;
-  margin-bottom: 0.7rem;
+  gap: 0.75rem;
+  margin-bottom: 0.85rem;
 }
 
 #page-generate[data-dense="5"] .stat-card {
-  --stat-card-base-min: 0px;
-  padding: 0.65rem 1rem 0.55rem;
-  gap: 0.05rem;
+  --stat-card-base-min: 102px;
+  padding: 0.85rem 1.15rem 0.75rem;
+  gap: 0.15rem;
 }
 
 #page-generate[data-dense="5"] .stat-card-icon {
-  width: 30px;
-  height: 30px;
+  width: 34px;
+  height: 34px;
 }
 
 #page-generate[data-dense="5"] .stat-card-icon svg {
-  width: 15px;
-  height: 15px;
+  width: 17px;
+  height: 17px;
 }
 
 #page-generate[data-dense="5"] .stat-card strong {
-  font-size: 1.3rem;
+  font-size: 1.7rem;
 }
 
-#page-generate[data-dense="5"] .stat-card-sub {
-  display: none;
+/* Subtitles stay visible at the floor — hiding them broke design harmony. */
+
+/* Tip override when density hid it but leftover space can take it. */
+#page-generate[data-force-tip="1"] #form-manual .form-tip--compact {
+  display: flex;
 }
 
 /* Short viewports: unlock the shell and scroll the whole page. */
@@ -2199,7 +2203,7 @@ main.is-exiting {
 
 #form-manual[data-footer-fit="3"] .workflow-steps {
   display: flex;
-  min-height: 7.5rem;
+  min-height: 6rem;
 }
 
 /* Text scales with the container width (cqw); the illustration area flexes

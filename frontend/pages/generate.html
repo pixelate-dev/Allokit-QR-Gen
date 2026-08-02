@@ -699,11 +699,10 @@
     document.getElementById('batch-size-toggle')?.classList.add('is-ready');
   });
 
-  // Progressive footer extras + short-screen density:
-  // fit 1/2/3 = size only / +Print Guide / +steps
-  // dense 1-5 = page chrome -> tip -> form subtitle -> compact paddings -> last-resort stats compact
-  // Stat cards keep original design (with subtitles) until dense 5.
-  // Size meta + mini sticker stay visible (they sit beside the toggle, not below it).
+  // Progressive footer extras + short-screen density.
+  // Priority: squeeze content first (Generate → Tip → Print Guide → Steps).
+  // Stat cards are slack only within floor/roof limits so design stays harmonious.
+  // Size meta + mini sticker stay visible beside the toggle.
   (function initManualFooterFit() {
     const app = document.getElementById('app');
     const page = document.getElementById('page-generate');
@@ -715,16 +714,36 @@
     const steps = document.getElementById('manual-workflow-steps');
     if (!app || !page || !form || !footer || !actions || !guide || !steps) return;
 
-    const STEPS_MIN_PX = 120;
+    const STEPS_MIN_PX = 96;
     const GUIDE_FALLBACK_PX = 72;
     const GUIDE_MAX_PX = 100;
-    const MAX_STATS_BOOST_PX = 56;
+    // Stat card leverage bounds (keep design language intact).
+    const STATS_NATURAL_PX = 118;
+    const STATS_FLOOR_PX = 102;
+    const STATS_ROOF_EXTRA_PX = 56;
+    const MAX_STATS_RECLAIM_PX = STATS_NATURAL_PX - STATS_FLOOR_PX;
     const MAX_DENSE = 5;
     let raf = 0;
     let guideNaturalH = GUIDE_FALLBACK_PX;
+    let boost = 0;
+
+    function currentStatsBaseMin() {
+      const card = page.querySelector('.stat-card');
+      if (!card) return STATS_NATURAL_PX;
+      const n = parseFloat(getComputedStyle(card).getPropertyValue('--stat-card-base-min'));
+      return Number.isFinite(n) ? n : STATS_NATURAL_PX;
+    }
+
+    function setBoost(px) {
+      const base = currentStatsBaseMin();
+      const floorBoost = STATS_FLOOR_PX - base;
+      const roofBoost = STATS_NATURAL_PX + STATS_ROOF_EXTRA_PX - base;
+      boost = Math.max(floorBoost, Math.min(roofBoost, px));
+      page.style.setProperty('--stats-boost', `${boost}px`);
+      void form.offsetHeight;
+    }
 
     function measureGuideHeight() {
-      // Measure in normal footer flow so width/wrapping match the real card.
       const prevFit = form.dataset.footerFit;
       const prevStepsDisplay = steps.style.display;
       form.dataset.footerFit = '2';
@@ -735,7 +754,6 @@
       form.dataset.footerFit = prevFit;
       void form.offsetHeight;
 
-      // Guard against bad measurements that would block fit 2/3 forever.
       if (measured >= 40 && measured <= GUIDE_MAX_PX) {
         guideNaturalH = measured;
       } else {
@@ -758,11 +776,23 @@
       return Math.max(0, formRect.bottom - padBottom - elRect.bottom);
     }
 
+    // Shrink stats until pred() is true, or reclaim budget runs out.
+    function reclaimUntil(pred) {
+      if (pred()) return true;
+      const start = boost;
+      for (let used = 8; used <= MAX_STATS_RECLAIM_PX; used += 8) {
+        setBoost(start - used);
+        if (pred()) return true;
+      }
+      setBoost(start);
+      return false;
+    }
+
     function updateManualFooterFit() {
-      // Always evaluate from the locked (non-scrolling) shell first.
       app.dataset.pageScroll = '0';
       page.dataset.pageScroll = '0';
-      page.style.setProperty('--stats-boost', '0px');
+      page.dataset.forceTip = '0';
+      setBoost(0);
       form.dataset.footerFit = '1';
 
       let dense = 0;
@@ -775,14 +805,13 @@
         void form.offsetHeight;
       }
 
-      // Short viewports: scroll the page and show the full priority stack
-      // (size toggle + Print Guide + steps) like the largest-screen layout.
       if (!coreFits()) {
         app.dataset.pageScroll = '1';
         page.dataset.pageScroll = '1';
         page.dataset.dense = '0';
+        page.dataset.forceTip = '0';
         form.dataset.footerFit = '3';
-        page.style.setProperty('--stats-boost', '0px');
+        setBoost(0);
         page.dataset.statsExtended = '0';
         guide.setAttribute('aria-hidden', 'false');
         steps.setAttribute('aria-hidden', 'false');
@@ -790,49 +819,87 @@
         return;
       }
 
+      // Undo over-dense chrome while Generate still fits.
+      while (dense > 0) {
+        page.dataset.dense = String(dense - 1);
+        void form.offsetHeight;
+        if (!coreFits()) {
+          page.dataset.dense = String(dense);
+          void form.offsetHeight;
+          break;
+        }
+        dense -= 1;
+      }
+
       app.dataset.pageScroll = '0';
       page.dataset.pageScroll = '0';
+
+      // 1) Squeeze Tip if density hid it (shrink stats if that unlocks it).
+      let tipShown = dense < 2;
+      if (!tipShown && tip) {
+        page.dataset.forceTip = '1';
+        void form.offsetHeight;
+        if (coreFits() || reclaimUntil(coreFits)) {
+          tipShown = true;
+        } else {
+          page.dataset.forceTip = '0';
+          setBoost(0);
+          void form.offsetHeight;
+        }
+      }
 
       const styles = getComputedStyle(footer);
       const gap = parseFloat(styles.rowGap) || parseFloat(styles.gap) || 0;
       measureGuideHeight();
 
-      // Free space under Generate with extras hidden and stats at natural height.
       form.dataset.footerFit = '1';
       void form.offsetHeight;
-      const free = spaceBelow(actions);
+
       const guideNeed = gap + guideNaturalH;
       const stepsNeed = guideNeed + gap + STEPS_MIN_PX;
-
+      let free = spaceBelow(actions);
       let fit = '1';
-      if (free >= stepsNeed) fit = '3';
-      else if (free >= guideNeed) fit = '2';
+
+      // 2) Squeeze Print Guide, then Steps. Reclaim stats when just short.
+      if (free >= stepsNeed || reclaimUntil(() => spaceBelow(actions) >= stepsNeed)) {
+        fit = '3';
+      } else if (free >= guideNeed || reclaimUntil(() => spaceBelow(actions) >= guideNeed)) {
+        fit = '2';
+        form.dataset.footerFit = '2';
+        void form.offsetHeight;
+        // Measure leftover under the real Print Guide card (not an estimate).
+        if (
+          spaceBelow(guide) >= STEPS_MIN_PX
+          || reclaimUntil(() => spaceBelow(guide) >= STEPS_MIN_PX)
+        ) {
+          fit = '3';
+        }
+      }
 
       form.dataset.footerFit = fit;
       void form.offsetHeight;
 
-      // Only fill a small awkward gap; never inflate stats instead of showing extras.
-      let boost = 0;
-      if (fit === '1') {
-        boost = Math.min(
-          Math.round(spaceBelow(actions)),
-          Math.max(0, Math.ceil(guideNeed) - 1),
-          MAX_STATS_BOOST_PX,
+      // 3) Nothing more will squeeze in — grow stats into the leftover (within roof).
+      if (fit === '1' || fit === '2') {
+        const anchor = fit === '2' ? guide : actions;
+        free = spaceBelow(anchor);
+        // Leave a 1px cushion so we don't oscillate on subpixels.
+        const grow = Math.min(
+          Math.max(0, Math.round(free) - 1),
+          STATS_ROOF_EXTRA_PX,
         );
-      } else if (fit === '2') {
-        boost = Math.min(
-          Math.round(spaceBelow(guide)),
-          Math.max(0, Math.ceil(stepsNeed - guideNeed) - 1),
-          MAX_STATS_BOOST_PX,
-        );
+        if (grow > 0) {
+          const prev = boost;
+          setBoost(prev + grow);
+          if (!coreFits()) setBoost(prev);
+        }
       }
 
-      page.style.setProperty('--stats-boost', `${boost}px`);
       page.dataset.statsExtended = boost > 8 ? '1' : '0';
 
       guide.setAttribute('aria-hidden', fit === '1' ? 'true' : 'false');
       steps.setAttribute('aria-hidden', fit === '3' ? 'false' : 'true');
-      if (tip) tip.setAttribute('aria-hidden', dense >= 2 ? 'true' : 'false');
+      if (tip) tip.setAttribute('aria-hidden', tipShown ? 'false' : 'true');
     }
 
     function scheduleFit() {
@@ -842,10 +909,11 @@
 
     form.dataset.footerFit = '1';
     page.dataset.dense = '0';
+    page.dataset.forceTip = '0';
     page.dataset.statsExtended = '0';
     page.dataset.pageScroll = '0';
     app.dataset.pageScroll = '0';
-    page.style.setProperty('--stats-boost', '0px');
+    setBoost(0);
     if (typeof ResizeObserver !== 'undefined') {
       const ro = new ResizeObserver(scheduleFit);
       ro.observe(footer);
