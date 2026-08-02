@@ -206,7 +206,7 @@
     <div class="csv-size-modal__header">
       <div class="csv-size-modal__heading">
         <h2 id="csv-size-modal-title">Queue CSV files</h2>
-        <p class="csv-size-modal__sub" id="csv-size-modal-sub">Choose a sticker size for each file, then start the queue.</p>
+        <p class="csv-size-modal__sub" id="csv-size-modal-sub">Choose a sticker size, then start the queue.</p>
       </div>
       <div class="batch-size-control">
         <div class="size-toggle batch-size-toggle is-neutral is-idle" id="csv-modal-size-toggle" role="group" aria-label="Sticker size for this upload">
@@ -223,7 +223,7 @@
   </div>
 </div>
 
-<script src="../js/nav.js?v=4"></script>
+<script src="../js/nav.js?v=5"></script>
 <script src="../js/job-id-format.js"></script>
 <script src="../js/search.js"></script>
 <script src="../js/progress.js"></script>
@@ -1088,7 +1088,14 @@
   function updateCsvModalHint() {
     if (!csvSizeModalSub) return;
     if (csvModalItems.length === 0) {
-      csvSizeModalSub.textContent = 'Choose a sticker size for each file, then start the queue.';
+      csvSizeModalSub.textContent = 'Choose a sticker size, then start the queue.';
+      return;
+    }
+    if (csvModalItems.length === 1) {
+      const size = csvModalItems[0].size;
+      csvSizeModalSub.textContent = size === 'small'
+        ? 'Small (1.25″ × 1.55″ with bleed).'
+        : 'Large (2.25″ × 3.25″ with bleed).';
       return;
     }
     if (isCsvModalSizeMixed()) {
@@ -1208,6 +1215,7 @@
 
   function renderCsvModalList() {
     const count = csvModalItems.length;
+    const multi = count > 1;
     if (csvSizeModalConfirm) csvSizeModalConfirm.disabled = count === 0;
 
     if (count === 0) {
@@ -1222,7 +1230,7 @@
       .map((item) => `
         <li class="batch-file-list-item" data-item-id="${item.id}">
           <span class="batch-file-list-name" title="${escapeHtml(item.file.name)}">${escapeHtml(item.file.name)}</span>
-          ${renderCsvModalFileToggle(item)}
+          ${multi ? renderCsvModalFileToggle(item) : ''}
         </li>
       `)
       .join('');

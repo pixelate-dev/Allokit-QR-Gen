@@ -498,7 +498,7 @@
   </main>
 </div>
 
-<script src="../js/nav.js?v=4"></script>
+<script src="../js/nav.js?v=5"></script>
 <script src="../js/job-id-format.js"></script>
 <script src="../js/search.js"></script>
 <script src="../js/progress.js"></script>
@@ -1623,7 +1623,7 @@
         .map((item) => `
           <li class="batch-file-list-item" data-item-id="${item.id}">
             <span class="batch-file-list-name" title="${escapeHtml(item.file.name)}">${escapeHtml(item.file.name)}</span>
-            ${renderBatchFileSizeToggle(item)}
+            ${multi ? renderBatchFileSizeToggle(item) : ''}
           </li>
         `)
         .join('');
@@ -1740,15 +1740,6 @@
   });
 
   syncBatchSizeControl();
-
-  window.addEventListener('allokit-default-size-change', (e) => {
-    const next = e.detail?.size === 'small' ? 'small' : 'large';
-    setManualSize(next);
-    if (selectedBatchItems.length === 0) {
-      batchGlobalSize = next;
-      syncBatchSizeControl();
-    }
-  });
 
   // Live queue panel (waiting jobs, poll sync, stack animation).
   const RECENT_QUEUE_LIMIT_MIN = 1;

@@ -568,6 +568,20 @@ html.is-ipad[data-theme="dark"] .settings-modal.is-open .settings-modal__backdro
   border-radius: var(--radius);
 }
 
+.settings-size-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.settings-size-hint {
+  margin: 0;
+  padding: 0 0.15rem;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+
 .settings-size-row__meta {
   flex: 1;
   min-width: 0;
@@ -1418,15 +1432,20 @@ main.is-exiting {
 .stat-card--primary::after {
   content: "";
   position: absolute;
-  inset: 0;
+  left: 0;
+  right: 0;
+  /* 1px past the edge; overflow:hidden clips it so tall cards don't gap. */
+  bottom: -1px;
+  height: calc(72% + 2px);
   opacity: 0.85;
-  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 120' preserveAspectRatio='none'%3E%3Cdefs%3E%3ClinearGradient id='w1' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0%25' stop-color='%23fff' stop-opacity='0.14'/%3E%3Cstop offset='100%25' stop-color='%23fff' stop-opacity='0.02'/%3E%3C/linearGradient%3E%3ClinearGradient id='w2' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0%25' stop-color='%23fff' stop-opacity='0.08'/%3E%3Cstop offset='100%25' stop-color='%23fff' stop-opacity='0'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M0 78 C38 52 72 96 118 70 C152 52 188 44 240 54 V120 H0Z' fill='url(%23w1)'/%3E%3Cpath d='M0 96 C48 78 86 108 132 90 C168 76 204 80 240 72 V120 H0Z' fill='url(%23w2)'/%3E%3C/svg%3E") bottom / 100% 72% no-repeat;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 120' preserveAspectRatio='none'%3E%3Cdefs%3E%3ClinearGradient id='w1' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0%25' stop-color='%23fff' stop-opacity='0.14'/%3E%3Cstop offset='100%25' stop-color='%23fff' stop-opacity='0.02'/%3E%3C/linearGradient%3E%3ClinearGradient id='w2' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0%25' stop-color='%23fff' stop-opacity='0.08'/%3E%3Cstop offset='100%25' stop-color='%23fff' stop-opacity='0'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M0 78 C38 52 72 96 118 70 C152 52 188 44 240 54 V121 H0Z' fill='url(%23w1)'/%3E%3Cpath d='M0 96 C48 78 86 108 132 90 C168 76 204 80 240 72 V121 H0Z' fill='url(%23w2)'/%3E%3C/svg%3E") center / 100% 100% no-repeat;
   pointer-events: none;
 }
 
 [data-theme="dark"] .stat-card--primary {
-  /* Same gradient angle/stops as light: dark royal to midnight navy */
-  background: linear-gradient(145deg, #2251c5 0%, #1a4bbd 42%, #0f204b 100%);
+  /* Same angle/stops as light; bottom stop matches wave feet so any
+     subpixel fringe reads as navy, not a bright or black hairline. */
+  background: linear-gradient(145deg, #2251c5 0%, #1a4bbd 42%, #122554 78%, #0f204b 100%);
   border: none;
   box-shadow: 0 6px 24px rgba(15, 32, 75, 0.45);
 }
@@ -1440,9 +1459,9 @@ main.is-exiting {
 }
 
 [data-theme="dark"] .stat-card--primary::after {
-  /* Exact same wave paths + placement as light; only fill colors changed */
+  /* Same wave treatment as light; only colors changed (no hard bottom seal). */
   opacity: 0.85;
-  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 120' preserveAspectRatio='none'%3E%3Cdefs%3E%3ClinearGradient id='w1' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0%25' stop-color='%230f204b' stop-opacity='0.45'/%3E%3Cstop offset='100%25' stop-color='%23080c24' stop-opacity='0.55'/%3E%3C/linearGradient%3E%3ClinearGradient id='w2' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0%25' stop-color='%23153570' stop-opacity='0.35'/%3E%3Cstop offset='100%25' stop-color='%23080a1c' stop-opacity='0.4'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M0 78 C38 52 72 96 118 70 C152 52 188 44 240 54 V120 H0Z' fill='url(%23w1)'/%3E%3Cpath d='M0 96 C48 78 86 108 132 90 C168 76 204 80 240 72 V120 H0Z' fill='url(%23w2)'/%3E%3C/svg%3E") bottom / 100% 72% no-repeat;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 120' preserveAspectRatio='none'%3E%3Cdefs%3E%3ClinearGradient id='w1' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0%25' stop-color='%230f204b' stop-opacity='0.45'/%3E%3Cstop offset='100%25' stop-color='%230f204b' stop-opacity='0.7'/%3E%3C/linearGradient%3E%3ClinearGradient id='w2' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0%25' stop-color='%23153570' stop-opacity='0.35'/%3E%3Cstop offset='100%25' stop-color='%230f204b' stop-opacity='0.65'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M0 78 C38 52 72 96 118 70 C152 52 188 44 240 54 V121 H0Z' fill='url(%23w1)'/%3E%3Cpath d='M0 96 C48 78 86 108 132 90 C168 76 204 80 240 72 V121 H0Z' fill='url(%23w2)'/%3E%3C/svg%3E") center / 100% 100% no-repeat;
 }
 
 .stat-card-header {
@@ -3991,6 +4010,19 @@ body:has(#page-history) .history-chrome-in {
   transition:
     opacity 0.22s var(--ease-out),
     transform 0.24s var(--ease-out);
+}
+
+/* Dark only: lift the panel so it doesn't blend into the page. */
+[data-theme="dark"] .csv-size-modal__backdrop {
+  background: rgba(6, 8, 12, 0.72);
+}
+
+[data-theme="dark"] .csv-size-modal__dialog {
+  background: var(--surface-muted);
+  border-color: rgba(139, 149, 168, 0.22);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.04),
+    0 24px 64px rgba(0, 0, 0, 0.55);
 }
 
 .csv-size-modal.is-open .csv-size-modal__dialog {

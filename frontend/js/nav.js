@@ -68,9 +68,7 @@
     const next = normalizeSize(size);
     setStoredDefaultSize(next);
     syncDefaultSizeToggle(next);
-    try {
-      window.dispatchEvent(new CustomEvent('allokit-default-size-change', { detail: { size: next } }));
-    } catch (_) {}
+    // Saved for the next page load only — do not live-sync Generate toggles.
     return next;
   }
 
@@ -182,15 +180,18 @@
           </button>
 
           <span class="settings-modal__section-label settings-modal__section-label--spaced">Stickers</span>
-          <div class="settings-size-row">
-            <div class="settings-size-row__meta">
-              <span class="settings-size-row__label">Default size</span>
-              <span class="settings-size-row__value" data-default-size-label>Large</span>
+          <div class="settings-size-block">
+            <div class="settings-size-row">
+              <div class="settings-size-row__meta">
+                <span class="settings-size-row__label">Default size</span>
+                <span class="settings-size-row__value" data-default-size-label>Large</span>
+              </div>
+              <div class="size-toggle settings-size-toggle" id="settings-size-toggle" role="group" aria-label="Default sticker size">
+                <button type="button" data-size="large" aria-pressed="true">Large</button>
+                <button type="button" data-size="small" aria-pressed="false">Small</button>
+              </div>
             </div>
-            <div class="size-toggle settings-size-toggle" id="settings-size-toggle" role="group" aria-label="Default sticker size">
-              <button type="button" data-size="large" aria-pressed="true">Large</button>
-              <button type="button" data-size="small" aria-pressed="false">Small</button>
-            </div>
+            <p class="settings-size-hint">Applies on the next page reload. The Generate size toggle is unchanged until then.</p>
           </div>
         </div>
       </div>
