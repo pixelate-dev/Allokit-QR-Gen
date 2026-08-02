@@ -4,6 +4,24 @@
   const THEME_KEY = 'allokitTheme';
   const DEFAULT_SIZE_KEY = 'allokitDefaultSize';
 
+  // iPad/iPhone (incl. iPadOS desktop UA): Safari can't keep backdrop-filter
+  // inside View Transition snapshots, so settings uses a solid scrim there.
+  function isIPadLike() {
+    const ua = navigator.userAgent || '';
+    if (/iPad|iPhone|iPod/.test(ua)) return true;
+    if (navigator.platform === 'MacIntel' && (navigator.maxTouchPoints || 0) > 1) return true;
+    try {
+      if (navigator.userAgentData?.platform === 'macOS' && (navigator.maxTouchPoints || 0) > 1) {
+        return true;
+      }
+    } catch (_) {}
+    return false;
+  }
+
+  if (isIPadLike()) {
+    document.documentElement.classList.add('is-ipad');
+  }
+
   function getStoredTheme() {
     try {
       return localStorage.getItem(THEME_KEY);
@@ -94,15 +112,6 @@
     syncThemeToggle(theme);
   }
 
-  // Safari/iPad View Transition snapshots often omit backdrop-filter.
-  function needsSolidScrimForThemeVt() {
-    const ua = navigator.userAgent || '';
-    if (/iPad|iPhone|iPod/.test(ua)) return true;
-    // iPadOS 13+ can report as MacIntel with touch
-    if (navigator.platform === 'MacIntel' && (navigator.maxTouchPoints || 0) > 1) return true;
-    return /Safari/.test(ua) && !/Chrome|Chromium|Edg|OPR|Firefox/i.test(ua);
-  }
-
   function applyTheme(theme, { animate = false } = {}) {
     const next = theme === 'dark' ? 'dark' : 'light';
     const root = document.documentElement;
@@ -116,27 +125,10 @@
 
     // Prefer View Transitions for a true crossfade (gradients/images included).
     if (typeof document.startViewTransition === 'function') {
-      const modal = document.getElementById('settings-modal');
-      const modalOpen = document.body.classList.contains('settings-modal-open');
-      const useSolidScrim = Boolean(
-        modal && modalOpen && needsSolidScrimForThemeVt()
-      );
-
-      // On WebKit, swap the live blur for a dense solid scrim before the
-      // snapshot so the overlay stays continuous through the crossfade.
-      // Chrome keeps backdrop-filter in VT snapshots, so leave it alone.
-      if (useSolidScrim) {
-        modal.classList.add('settings-modal--solid-scrim');
-        void modal.offsetWidth;
-      }
-
       const transition = document.startViewTransition(() => {
         commitTheme(next);
       });
-      const cleanup = () => {
-        modal?.classList.remove('settings-modal--solid-scrim');
-      };
-      transition.finished.then(cleanup, cleanup);
+      transition.finished.catch(() => {});
       return;
     }
 
