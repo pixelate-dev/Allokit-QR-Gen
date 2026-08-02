@@ -30,7 +30,7 @@ QR_WIDTH, QR_HEIGHT     = _large.qr_width, _large.qr_height
 MODULE_SIZE, QUIET_ZONE = 20, 2
 
 # Maximum rows per CSV batch upload.
-MAX_BATCH_ROWS = 1000
+MAX_BATCH_ROWS = 1024
 
 # EWMA seconds-per-sticker; exposed via GET /stats for queue ETA.
 DEFAULT_SECONDS_PER_STICKER = 0.5

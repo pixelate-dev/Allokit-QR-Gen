@@ -82,6 +82,8 @@
       new URL('../js/search.js', baseHref).href,
       new URL('../js/progress.js', baseHref).href,
       new URL('../js/csv-upload-queue.js', baseHref).href,
+      new URL('../js/app-notice.js', baseHref).href,
+      new URL('../js/csv-limits.js', baseHref).href,
       new URL('../js/job-id-format.js', baseHref).href,
       new URL('/config.js', location.href).href,
       location.href,

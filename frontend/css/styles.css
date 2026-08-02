@@ -174,6 +174,15 @@ html.theme-transition *::after {
     filter 0.42s var(--ease-out) !important;
 }
 
+/* Safari/iPad: animating opacity/filter on a blurred scrim drops
+   backdrop-filter for the duration of the theme morph. Only let the
+   scrim color ease; keep blur + opacity locked. */
+html.theme-transition .settings-modal__backdrop,
+html.theme-transition .settings-modal__backdrop::before,
+html.theme-transition .settings-modal__backdrop::after {
+  transition: background-color 0.42s var(--ease-out) !important;
+}
+
 @media (prefers-reduced-motion: reduce) {
   ::view-transition-old(root),
   ::view-transition-new(root) {
@@ -4875,6 +4884,262 @@ main:has(#page-print-guide) {
   .page-header { flex-direction: column; align-items: stretch; }
   .mode-toggle { width: 100%; }
   .mode-toggle button { flex: 1; min-width: 0; padding: 0.75rem 1rem; }
+}
+
+/* App notice modal (CSV limits, soft alerts) */
+.app-notice-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 220;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.22s var(--ease-out);
+}
+
+.app-notice-modal[hidden] {
+  display: none !important;
+}
+
+.app-notice-modal.is-open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.app-notice-modal.is-closing {
+  pointer-events: none;
+}
+
+.app-notice-modal__backdrop {
+  position: absolute;
+  inset: 0;
+  border: none;
+  padding: 0;
+  background: var(--modal-scrim);
+  cursor: pointer;
+}
+
+.app-notice-modal__dialog {
+  position: relative;
+  width: min(420px, 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.85rem;
+  padding: 1.35rem 1.35rem 1.15rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 20px 48px rgba(15, 23, 42, 0.18);
+  opacity: 0;
+  transform: translateY(10px) scale(0.985);
+  transition:
+    opacity 0.22s var(--ease-out),
+    transform 0.24s var(--ease-out);
+}
+
+.app-notice-modal--art .app-notice-modal__dialog {
+  width: min(440px, 100%);
+  gap: 0.75rem;
+  padding: 0.9rem 1.15rem 1.15rem;
+  overflow: hidden;
+}
+
+.app-notice-modal.is-open .app-notice-modal__dialog {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.app-notice-art {
+  margin: -0.9rem -1.15rem 0.05rem;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  overflow: hidden;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.app-notice-art[hidden] {
+  display: none !important;
+}
+
+.app-notice-art__svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.app-notice-art__sky-top { stop-color: #f3f7ff; }
+.app-notice-art__sky-bot { stop-color: #e8f0fc; }
+
+[data-theme="dark"] .app-notice-art__sky-top { stop-color: #161b28; }
+[data-theme="dark"] .app-notice-art__sky-bot { stop-color: #12161f; }
+
+.app-notice-art__ground {
+  fill: var(--border);
+  opacity: 0.65;
+}
+
+.app-notice-art__sticker {
+  stroke: var(--border);
+  stroke-width: 1.4;
+}
+
+.app-notice-art__sticker--a { fill: #dbeafe; }
+.app-notice-art__sticker--b { fill: #eff6ff; }
+.app-notice-art__sticker--c { fill: #bfdbfe; }
+
+[data-theme="dark"] .app-notice-art__sticker--a { fill: #1a3a6e; }
+[data-theme="dark"] .app-notice-art__sticker--b { fill: #234987; }
+[data-theme="dark"] .app-notice-art__sticker--c { fill: #1e52a0; }
+
+.app-notice-art__qr {
+  fill: var(--blue);
+  opacity: 0.88;
+}
+
+.app-notice-art__legs,
+.app-notice-art__speed,
+.app-notice-art__bot-arm {
+  stroke: var(--text-secondary);
+  stroke-width: 2.1;
+  stroke-linecap: round;
+  fill: none;
+}
+
+.app-notice-art__speed {
+  opacity: 0.55;
+}
+
+.app-notice-art__bot-body {
+  fill: var(--surface);
+  stroke: var(--border);
+  stroke-width: 1.6;
+}
+
+.app-notice-art__bot-screen {
+  fill: var(--input-bg);
+  stroke: var(--border);
+  stroke-width: 1.2;
+}
+
+.app-notice-art__bot-face {
+  fill: var(--danger);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.app-notice-art__bot-slot {
+  fill: var(--border);
+}
+
+.app-notice-art__bot-knob {
+  fill: var(--blue);
+}
+
+.app-notice-art__sweat {
+  fill: #7dd3fc;
+  opacity: 0.85;
+}
+
+.app-notice-art__puff {
+  fill: var(--text-muted);
+  opacity: 0.45;
+}
+
+.app-notice-art__runner--air {
+  animation: app-notice-bounce 1.2s var(--ease-in-out) infinite;
+}
+
+@keyframes app-notice-bounce {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(2px, -4px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-notice-art__runner--air {
+    animation: none;
+  }
+}
+
+.app-notice-modal__copy h2 {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 650;
+  line-height: 1.35;
+  color: var(--text);
+}
+
+.app-notice-modal--art .app-notice-modal__copy {
+  text-align: center;
+  padding: 0.1rem 0.2rem 0;
+}
+
+.app-notice-modal--art .app-notice-modal__copy h2 {
+  font-size: 1.12rem;
+}
+
+.app-notice-modal__copy p {
+  margin: 0.45rem 0 0;
+  font-size: 0.925rem;
+  line-height: 1.55;
+  color: var(--text-secondary);
+}
+
+.app-notice-modal--art .app-notice-modal__copy p {
+  max-width: none;
+}
+
+.app-notice-modal__footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 0.25rem;
+}
+
+.app-notice-modal--art .app-notice-modal__footer {
+  justify-content: stretch;
+}
+
+.app-notice-modal--art .app-notice-modal__ok {
+  width: 100%;
+  border-radius: 12px;
+}
+
+.app-notice-modal__ok {
+  appearance: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 0.6rem 1rem;
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #fff;
+  background: var(--blue);
+  cursor: pointer;
+  box-shadow: var(--glow-blue);
+  transition: background 0.15s var(--ease-out);
+}
+
+.app-notice-modal__ok:hover {
+  background: var(--blue-hover);
+}
+
+body.app-notice-modal-open {
+  overflow: hidden;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-notice-modal,
+  .app-notice-modal__dialog {
+    transition: none;
+  }
+
+  .app-notice-modal__dialog,
+  .app-notice-modal.is-open .app-notice-modal__dialog {
+    transform: none;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

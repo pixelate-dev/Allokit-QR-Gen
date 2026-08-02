@@ -365,7 +365,7 @@
             </div>
           </form>
 
-          <form id="form-batch" class="mode-panel" aria-hidden="true">
+          <form id="form-batch" class="mode-panel" inert>
             <div class="form-card-head form-card-head--batch">
               <div class="form-card-head__text">
                 <h2>Batch CSV Upload</h2>
@@ -470,7 +470,7 @@
           </div>
 
           <!-- CSV Batch mode: live queue -->
-          <div id="preview-batch" class="mode-panel" aria-hidden="true">
+          <div id="preview-batch" class="mode-panel" inert>
             <div class="batch-status">
               <div class="batch-section batch-section--now">
                 <h3 class="batch-section-title">Now generating</h3>
@@ -498,11 +498,13 @@
   </main>
 </div>
 
-<script src="../js/nav.js"></script>
+<script src="../js/nav.js?v=2"></script>
 <script src="../js/job-id-format.js"></script>
 <script src="../js/search.js"></script>
 <script src="../js/progress.js"></script>
 <script src="../js/notifications.js?v=3"></script>
+<script src="../js/app-notice.js?v=15"></script>
+<script src="../js/csv-limits.js?v=15"></script>
 <script src="../js/csv-upload-queue.js"></script>
 <script>
   // Mode toggle
@@ -901,10 +903,10 @@
 
   function applyModeAria(mode) {
     const isManual = mode === 'manual';
-    formManual.setAttribute('aria-hidden', !isManual);
-    formBatch.setAttribute('aria-hidden', isManual);
-    previewManual.setAttribute('aria-hidden', !isManual);
-    previewBatch.setAttribute('aria-hidden', isManual);
+    formManual.inert = !isManual;
+    formBatch.inert = isManual;
+    previewManual.inert = !isManual;
+    previewBatch.inert = isManual;
   }
 
   function activatePanels(panels) {
@@ -1465,16 +1467,53 @@
     });
   }
 
-  function handleFiles(fileList) {
+  async function filterCsvFilesWithinLimit(csvFiles) {
+    const limits = window.AllokitCsvLimits;
+    if (!limits?.countUrlRows) return csvFiles;
+
+    const accepted = [];
+    let rejected = null;
+    for (const file of csvFiles) {
+      try {
+        const count = await limits.countUrlRows(file);
+        if (count > limits.MAX_BATCH_ROWS) {
+          if (!rejected) rejected = { fileName: file.name, count };
+          continue;
+        }
+      } catch (err) {
+        console.warn('Could not pre-check CSV row count:', file.name, err);
+      }
+      accepted.push(file);
+    }
+
+    if (rejected) {
+      limits.showTooManyRowsNotice(rejected);
+    }
+    return accepted;
+  }
+
+  async function handleFiles(fileList) {
     const csvFiles = Array.from(fileList).filter((f) => f.name.toLowerCase().endsWith('.csv'));
     if (csvFiles.length === 0) {
-      alert('Please select CSV file(s).');
+      if (window.AllokitNotice?.show) {
+        window.AllokitNotice.show({
+          title: 'Select a CSV file',
+          message: 'Drop or pick one or more .csv files with a URL column.',
+          okLabel: 'Okay',
+        });
+      } else {
+        alert('Please select CSV file(s).');
+      }
       return;
     }
+
+    const accepted = await filterCsvFilesWithinLimit(csvFiles);
+    if (accepted.length === 0) return;
+
     cancelBatchSizeCascade();
     const defaultSize = window.AllokitPrefs?.getDefaultSize?.() || 'large';
     batchGlobalSize = defaultSize;
-    selectedBatchItems = csvFiles.map((file) => ({
+    selectedBatchItems = accepted.map((file) => ({
       id: crypto.randomUUID(),
       file,
       size: defaultSize,
@@ -1578,7 +1617,22 @@
       loadJobsQueue();
       loadStats();
     } catch (err) {
-      alert(`Failed to start batch job: ${err.message}`);
+      const detail = window.AllokitCsvLimits?.parseApiDetail?.(err.message) || err.message;
+      const match = /Too many rows \(max (\d+), got (\d+)\)/i.exec(detail || '');
+      if (match || window.AllokitCsvLimits?.isTooManyRowsError?.(detail)) {
+        window.AllokitCsvLimits.showTooManyRowsNotice({
+          fileName: item.file.name,
+          count: match ? Number(match[2]) : undefined,
+        });
+      } else if (window.AllokitNotice?.show) {
+        window.AllokitNotice.show({
+          title: "Batch didn't start",
+          message: detail || 'Something went wrong starting this batch.',
+          okLabel: 'Okay',
+        });
+      } else {
+        alert(`Failed to start batch job: ${err.message}`);
+      }
     } finally {
       batchSubmitBtn.textContent = 'Start batch job';
       batchSubmitBtn.disabled = selectedBatchItems.length === 0;

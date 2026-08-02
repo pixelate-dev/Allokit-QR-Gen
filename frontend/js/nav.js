@@ -105,8 +105,13 @@
       return;
     }
 
-    // Prefer View Transitions for a true crossfade (gradients/images included).
-    if (typeof document.startViewTransition === 'function') {
+    // View Transitions snapshot the page; iPad/Safari often drops
+    // backdrop-filter in those snapshots, so the settings scrim blur
+    // vanishes mid-theme-switch and only returns after. Keep the live
+    // modal DOM when a blurred overlay is open.
+    const modalOpen = document.body.classList.contains('settings-modal-open');
+
+    if (typeof document.startViewTransition === 'function' && !modalOpen) {
       const transition = document.startViewTransition(() => {
         commitTheme(next);
       });
@@ -114,7 +119,8 @@
       return;
     }
 
-    // Fallback: CSS property transitions while `.theme-transition` is active.
+    // Fallback / modal-open path: CSS property transitions while
+    // `.theme-transition` is active (modal backdrop excluded in CSS).
     root.classList.add('theme-transition');
     commitTheme(next);
     window.setTimeout(() => {
