@@ -4,7 +4,7 @@
   --blue: #1971f2;
   --blue-hover: #1565d8;
   --blue-light: #e8f1fe;
-  --blue-gradient: linear-gradient(135deg, #1971f2 0%, #0052cc 100%);
+  --blue-gradient: linear-gradient(135deg, #1971f2 0%, #1565d8 100%);
   --subtle-blue-gradient: linear-gradient(180deg, #fafcff 0%, #f3f8ff 100%);
   --bg: #f4f6f9;
   --surface: #ffffff;
@@ -79,10 +79,11 @@
 [data-theme="dark"] {
   color-scheme: dark;
   /* Match reference: matte charcoal-navy, soft contrast, electric blue */
-  --blue: #1e69fd;
+  /* Same brand base as light (#1971f2); only brightness shifts for contrast. */
+  --blue: #1971f2;
   --blue-hover: #3b82f6;
-  --blue-light: rgba(30, 105, 253, 0.16);
-  --blue-gradient: linear-gradient(180deg, #3b82f6 0%, #1e69fd 48%, #1558e0 100%);
+  --blue-light: rgba(25, 113, 242, 0.16);
+  --blue-gradient: linear-gradient(135deg, #1971f2 0%, #1565d8 100%);
   --subtle-blue-gradient: linear-gradient(
     180deg,
     #161b28 0%,
@@ -113,12 +114,12 @@
   --neutral-badge-text: #8b95a8;
   --neutral-badge-dot: #5c6578;
   --row-hover: rgba(139, 149, 168, 0.06);
-  --row-highlight: rgba(30, 105, 253, 0.16);
+  --row-highlight: rgba(25, 113, 242, 0.16);
   --progress-track: #1c2230;
   --progress-track-cancelled: #171c28;
   --disabled-bg: #1c2230;
   --disabled-text: #5c6578;
-  --dropzone-border: rgba(30, 105, 253, 0.35);
+  --dropzone-border: rgba(25, 113, 242, 0.35);
   --dropzone-success-bg: rgba(52, 211, 153, 0.1);
   --preview-stage-bg: linear-gradient(180deg, #161b28 0%, #12161f 100%);
   --preview-shell-mask: linear-gradient(180deg, #161b28 0%, #12161f 100%);
@@ -132,7 +133,8 @@
   --modal-scrim: rgba(6, 8, 12, 0.72);
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 6px 20px rgba(0, 0, 0, 0.35);
-  --glow-blue: 0 4px 16px rgba(30, 105, 253, 0.32);
+  /* Same two-layer glow as light for cross-theme consistency. */
+  --glow-blue: 0 1px 2px rgba(25, 113, 242, 0.2), 0 4px 12px rgba(25, 113, 242, 0.18);
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -1412,7 +1414,8 @@ main.is-exiting {
 }
 
 .stat-card--primary {
-  background: linear-gradient(145deg, #2b87ff 0%, #1971f2 42%, #0b5fd6 100%);
+  /* Narrow stop range keeps the whole surface reading as brand #1971f2. */
+  background: linear-gradient(145deg, #2f83f7 0%, #1971f2 45%, #1565d8 100%);
   border: none;
   color: #fff;
   box-shadow: 0 6px 24px rgba(25, 113, 242, 0.28);
@@ -1445,7 +1448,7 @@ main.is-exiting {
 [data-theme="dark"] .stat-card--primary {
   /* Same angle/stops as light; bottom stop matches wave feet so any
      subpixel fringe reads as navy, not a bright or black hairline. */
-  background: linear-gradient(145deg, #2251c5 0%, #1a4bbd 42%, #122554 78%, #0f204b 100%);
+  background: linear-gradient(145deg, #2b6ce0 0%, #1e5dd0 42%, #122554 78%, #0f204b 100%);
   border: none;
   box-shadow: 0 6px 24px rgba(15, 32, 75, 0.45);
 }
@@ -2878,7 +2881,18 @@ html[data-default-size="small"] #manual-size-mini:not(.is-ready) .size-mini__sti
 .btn-primary:hover:not(:disabled),
 .panel-left button[type="submit"]:hover:not(:disabled) {
   filter: brightness(1.06);
-  box-shadow: 0 6px 22px rgba(30, 105, 253, 0.4);
+  box-shadow: 0 5px 18px rgba(25, 113, 242, 0.32);
+}
+
+#add-csv-btn:hover:not(:disabled) {
+  filter: brightness(1.06);
+  box-shadow: 0 5px 18px rgba(25, 113, 242, 0.32);
+}
+
+[data-theme="dark"] .btn-primary:hover:not(:disabled),
+[data-theme="dark"] .panel-left button[type="submit"]:hover:not(:disabled),
+[data-theme="dark"] #add-csv-btn:hover:not(:disabled) {
+  box-shadow: 0 4px 14px rgba(25, 113, 242, 0.22);
 }
 
 .btn-primary:active:not(:disabled),
@@ -3951,7 +3965,7 @@ body:has(#page-history) .history-chrome-in {
 
 #add-csv-btn:hover:not(:disabled) {
   filter: brightness(1.06);
-  box-shadow: 0 6px 22px rgba(30, 105, 253, 0.4);
+  box-shadow: 0 5px 18px rgba(25, 113, 242, 0.32);
 }
 
 #add-csv-btn:disabled {
